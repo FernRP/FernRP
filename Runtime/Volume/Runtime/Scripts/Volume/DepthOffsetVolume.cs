@@ -52,7 +52,7 @@ namespace FernRender.URP.FernVolume
             descriptor.width >>= m_VolumeComponent.downSample.value;
             descriptor.height >>= m_VolumeComponent.downSample.value;
             
-            RenderingUtils.ReAllocateIfNeeded(ref depthShadowRTHandle, descriptor, FilterMode.Bilinear, TextureWrapMode.Clamp, name: "_CameraDepthShadowTexture");
+            RenderingUtils.ReAllocateIfNeeded(ref depthShadowRTHandle, descriptor, FilterMode.Point, TextureWrapMode.Clamp, name: "_CameraDepthShadowTexture");
             
             return true;
         }
