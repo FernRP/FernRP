@@ -9,10 +9,10 @@ namespace FernRender.URP.FernVolume
     [System.Serializable, VolumeComponentMenu("FernRender/Depth Offset")]
     public class DepthOffsetVolume : VolumeComponent, IPostProcessComponent
     {
-
+        public BoolParameter isEnable = new BoolParameter(false);
         public ClampedIntParameter downSample = new ClampedIntParameter(0, 1, 4);
 
-        public bool IsActive() => downSample.overrideState == true;
+        public bool IsActive() => isEnable.value;
         public bool IsTileCompatible() => true;
     }
 
