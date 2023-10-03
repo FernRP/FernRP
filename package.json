@@ -5,8 +5,8 @@
   "unity": "2022.2",
   "displayName": "Fern Render Core",
   "dependencies": {
-    "com.unity.render-pipelines.core": "14.0.7",
-    "com.unity.shadergraph": "14.0.7"
+    "com.unity.render-pipelines.core": "14.0.6",
+    "com.unity.shadergraph": "14.0.6"
   },
   "keywords": [
     "graphics",
@@ -14,5 +14,9 @@
     "rendering",
     "mobile",
     "render"
-  ]
+  ],
+  "author": {
+    "name": "Fern",
+    "url": "https://github.com/FernRender/FernNPR"
+  }
 }
