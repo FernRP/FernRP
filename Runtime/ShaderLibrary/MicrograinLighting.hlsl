@@ -679,7 +679,7 @@ half3 FernAdditionLightDirectLighting(BRDFData brdfData, BRDFData brdfDataClearC
             // Additional Light Filter Referenced from https://github.com/unity3d-jp/UnityChanToonShaderVer2_Project
             float pureIntencity = 0.299 * lightingData.lightColor.r + 0.587 * lightingData.lightColor.g + 0.114 * lightingData.lightColor.b;
             lightingData.lightColor = max(0, lerp(lightingData.lightColor, min(lightingData.lightColor, lightingData.lightColor / pureIntencity * _LightIntensityClamp), _Is_Filter_LightColor));
-            half3 addLightColor = FernMainLightDirectLighting(brdfData, brdfDataClearCoat, input, inputData, surfData, radiance, lightingData);
+            half3 addLightColor = FernMainLightDirectLighting(brdfData, brdfDataClearCoat, input, inputData, surfData, lightingData);
             additionLightColor += addLightColor;
         }
     }
@@ -698,7 +698,7 @@ half3 FernAdditionLightDirectLighting(BRDFData brdfData, BRDFData brdfDataClearC
             // Additional Light Filter Referenced from https://github.com/unity3d-jp/UnityChanToonShaderVer2_Project
             float pureIntencity = 0.299 * lightingData.lightColor.r + 0.587 * lightingData.lightColor.g + 0.114 * lightingData.lightColor.b;
             lightingData.lightColor = max(0, lerp(lightingData.lightColor, min(lightingData.lightColor, lightingData.lightColor / pureIntencity * _LightIntensityClamp), _Is_Filter_LightColor));
-            half3 addLightColor = FernMainLightDirectLighting(brdfData, brdfDataClearCoat, input, inputData, surfData, radiance, lightingData);
+            half3 addLightColor = FernMainLightDirectLighting(brdfData, brdfDataClearCoat, input, inputData, surfData, lightingData);
             additionLightColor += addLightColor;
         }
     }
@@ -714,7 +714,7 @@ half3 FernAdditionLightDirectLighting(BRDFData brdfData, BRDFData brdfDataClearC
             half radiance = LightingRadiance(lightingData);
             // Additional Light Filter Referenced from https://github.com/unity3d-jp/UnityChanToonShaderVer2_Project
             float pureIntencity = 0.299 * lightingData.lightColor.r + 0.587 * lightingData.lightColor.g + 0.114 * lightingData.lightColor.b;
-            half3 addLightColor = FernMainLightDirectLighting(brdfData, brdfDataClearCoat, input, inputData, surfData, radiance, lightingData);
+            half3 addLightColor = FernMainLightDirectLighting(brdfData, brdfDataClearCoat, input, inputData, surfData, lightingData);
             additionLightColor += addLightColor;
         }
     LIGHT_LOOP_END
