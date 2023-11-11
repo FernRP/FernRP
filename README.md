@@ -1,19 +1,17 @@
 ![cover](https://github.com/DeJhon-Huang/FernNPR/blob/master/DocAssets/cover.jpg)
 ------------------------------------
 
-# Fern RP
+# FernRP
 A high-quality and stylized URP-based rendering pipeline extension without replacing the URP version.
 
-## Fern Render Project
+## Projects using FernRP
 
 The [FernRender](https://github.com/FernRender/FernRender) project is the implementation of this Package.
 
 ![](DocAssets/MaterialBall.jpg)
  
-
 ## More Examples
 More showcase in [Wiki](https://github.com/DeJhon-Huang/FernNPR/wiki), please visit [More Example](https://github.com/DeJhon-Huang/FernNPR/wiki/More-Example) on the [Wiki](https://github.com/DeJhon-Huang/FernNPR/wiki)
-
 
 ## Related links
 
