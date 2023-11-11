@@ -1,16 +1,13 @@
 using System;
 using System.Collections.Generic;
-#if FERN_ENV_GRASS
-using FernRender.URP.Env;
-#endif
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
-namespace FernRender
+namespace UnityEngine.Rendering.FernRenderPipeline
 {
     [ExecuteAlways]
-    public class FernRenderer : MonoBehaviour
+    public class FernRP : MonoBehaviour
     {
         public RenderPipelineAsset renderPipelineAsset;
         
@@ -23,8 +20,8 @@ namespace FernRender
         private static readonly int ShaderID_CameraAspect = Shader.PropertyToID("_CameraAspect");
         private static readonly int ShaderID_CameraFOV = Shader.PropertyToID("_CameraFOV");
 
-        private static FernRenderer instance;
-        public static FernRenderer Get => instance != null ? instance : null;
+        private static FernRP instance;
+        public static FernRP Get => instance != null ? instance : null;
 
         private void OnEnable()
         {

@@ -6,9 +6,9 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.Assertions;
 
-namespace FernRender
+namespace UnityEditor.Rendering.FernRenderPipeline
 {
-    public class FernRenderGUIUtility : Editor
+    public class FernRPGUIUtility : Editor
     {
         public static void DrawActionBox(string text, string label, MessageType messageType, Action action)
         {

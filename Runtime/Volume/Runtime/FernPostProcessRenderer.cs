@@ -1,10 +1,10 @@
 ﻿using System;
-using FernRender.URP;
+using UnityEngine.Rendering.FernRenderPipeline;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
-namespace FernRender.URP.FernVolume 
+namespace UnityEngine.Rendering.FernRenderPipeline
 {
     /// <summary>
     /// Custom Post Processing injection points.

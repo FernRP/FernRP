@@ -1,9 +1,9 @@
 {
   "name": "com.fernrender.core",
-  "description": "Fern Render Core",
+  "description": "Fern Render Pipeline",
   "version": "1.0.0",
-  "unity": "2022.2",
-  "displayName": "Fern Render Core",
+  "unity": "2022.3",
+  "displayName": "FernRP",
   "dependencies": {
     "com.unity.render-pipelines.core": "14.0.6",
     "com.unity.shadergraph": "14.0.6"

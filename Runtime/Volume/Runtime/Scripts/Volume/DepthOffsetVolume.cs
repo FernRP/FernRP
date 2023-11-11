@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
-namespace FernRender.URP.FernVolume
+namespace UnityEngine.Rendering.FernRenderPipeline
 {
     [System.Serializable, VolumeComponentMenu("FernRender/Depth Offset")]
     public class DepthOffsetVolume : VolumeComponent, IPostProcessComponent

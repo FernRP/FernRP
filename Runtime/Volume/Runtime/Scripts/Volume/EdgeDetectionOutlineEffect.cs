@@ -1,10 +1,10 @@
-﻿using FernRender.URP;
+﻿using UnityEngine.Rendering.FernRenderPipeline;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.Serialization;
 
-namespace FernRender.URP.FernVolume
+namespace UnityEngine.Rendering.FernRenderPipeline
 {
     [System.Serializable, VolumeComponentMenu("FernRender/Edge Detection Outline")]
     public class EdgeDetectionOutlineEffect : VolumeComponent

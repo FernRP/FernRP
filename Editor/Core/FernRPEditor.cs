@@ -1,25 +1,23 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-#if FERN_ENV_GRASS
-using FernRender.URP.Env;
-#endif
 using UnityEditor;
 using UnityEditorInternal;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.FernRenderPipeline;
 
-namespace FernRender
+namespace UnityEditor.Rendering.FernRenderPipeline
 {
-    [CustomEditor(typeof(FernRenderer))]
-    public class FernRenderEditor : Editor
+    [CustomEditor(typeof(FernRP))]
+    public class FernRPEditor : Editor
     {
-        FernRenderer script;
+        FernRP script;
         private SerializedProperty renderPipelineAsset;
 
         private void OnEnable()
         {
-            script = (FernRenderer)target;
+            script = (FernRP)target;
 
             renderPipelineAsset = serializedObject.FindProperty("renderPipelineAsset");
             OnEnableGrass();

@@ -5,7 +5,7 @@ using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
-namespace FernRender.URP.FernVolume
+namespace UnityEngine.Rendering.FernRenderPipeline
 {
     [Serializable]
     public class FernPostProcess : ScriptableRendererFeature
