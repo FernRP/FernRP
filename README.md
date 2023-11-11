@@ -2,7 +2,7 @@
 ------------------------------------
 
 # FernRP
-A high-quality and stylized URP-based rendering pipeline extension without replacing the URP version.
+A high-quality and stylized URP-based rendering pipeline extension.
 
 ## Projects using FernRP
 
