@@ -1,8 +1,8 @@
 ![cover](https://github.com/DeJhon-Huang/FernNPR/blob/master/DocAssets/cover.jpg)
 ------------------------------------
 
-# Fern Render Core
-Fern Render Core is a powerful Unity rendering library.
+# Fern RP
+A high-quality and stylized URP-based rendering pipeline extension without replacing the URP version.
 
 ## Fern Render Project
 
