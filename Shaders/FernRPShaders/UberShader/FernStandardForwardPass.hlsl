@@ -1,13 +1,13 @@
 #ifndef UNIVERSAL_FORWARD_UBERSTANDARD_PASS_INCLUDED
 #define UNIVERSAL_FORWARD_UBERSTANDARD_PASS_INCLUDED
 
-#include "../ShaderLibrary/FernCommon.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/FernShaderLibrary/FernCommon.hlsl"
 #if _NPR
-#include "../ShaderLibrary/NPRVarying.hlsl"
-#include "../ShaderLibrary/NPRLighting.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/FernShaderLibrary/NPRVarying.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/FernShaderLibrary/NPRLighting.hlsl"
 #elif _MIRCOGARIN
-#include "../ShaderLibrary/MicroGarinVarying.hlsl"
-#include "../ShaderLibrary/MicrograinLighting.hlsl" 
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/FernShaderLibrary/MicroGarinVarying.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/FernShaderLibrary/MicrograinLighting.hlsl" 
 #endif
 
 // GLES2 has limited amount of interpolators
@@ -120,7 +120,7 @@ void LitPassFragment(
     FernAddInputData addInputData;
     PreInitializeInputData(input, facing, inputData, addInputData);
 
-    FernSurfaceData surfaceData;
+    SurfaceData surfaceData;
     InitializeNPRStandardSurfaceData(input.uv.xy, inputData, surfaceData);
 
     InitializeInputData(input, surfaceData.normalTS, addInputData, inputData);
@@ -132,7 +132,7 @@ void LitPassFragment(
     SETUP_DEBUG_TEXTURE_DATA(inputData, input.uv, _BaseMap);
 
     #ifdef _DBUFFER
-    ApplyDecalToSurfaceData(input.positionCS, surfaceData, inputData);
+        ApplyDecalToSurfaceData(input.positionCS, surfaceData, inputData);
     #endif
 
     half4 shadowMask = CalculateShadowMask(inputData);
@@ -191,7 +191,7 @@ void LitPassFragment_DepthPrePass(
     FernAddInputData addInputData;
     PreInitializeInputData(input, 1, inputData, addInputData);
 
-    FernSurfaceData surfaceData;
+    SurfaceData surfaceData;
     InitializeNPRStandardSurfaceData(input.uv.xy, inputData, surfaceData);
 
     clip(surfaceData.alpha - _Cutoff);

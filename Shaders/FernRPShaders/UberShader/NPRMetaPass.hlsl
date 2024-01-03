@@ -5,7 +5,7 @@
 
 half4 UniversalFragmentMetaLit(Varyings input) : SV_Target
 {
-    FernSurfaceData surfaceData;
+    SurfaceData surfaceData;
     InitializeNPRStandardSurfaceData(input.uv, surfaceData);
 
     BRDFData brdfData;

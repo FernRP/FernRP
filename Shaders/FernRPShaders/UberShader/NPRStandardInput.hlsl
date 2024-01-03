@@ -6,14 +6,12 @@
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/SurfaceInput.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/ParallaxMapping.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DBuffer.hlsl"
-#include "..\ShaderLibrary\FernShaderUtils.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/FernShaderLibrary/FernShaderUtils.hlsl"
 
 #if _NPR
-    #include "../ShaderLibrary/NPRInput.hlsl"
-    #include "../ShaderLibrary/NPRSurfaceData.hlsl"
+    #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/FernShaderLibrary/NPRInput.hlsl"
 #elif _MIRCOGARIN
-    #include "../ShaderLibrary/NPRInput.hlsl"
-    #include "../ShaderLibrary/MicroGarinSurfaceData.hlsl"
+    #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/FernShaderLibrary/NPRInput.hlsl"
 #endif
 
 #if defined(_DETAIL_MULX2) || defined(_DETAIL_SCALED)
@@ -339,9 +337,9 @@ inline half SpecularAA(half3 normalWS, half smoothness)
     return smoothnessAA;
 }
 
-inline void InitializeNPRStandardSurfaceData(float2 uv, InputData inputData, out FernSurfaceData outSurfaceData)
+inline void InitializeNPRStandardSurfaceData(float2 uv, InputData inputData, out SurfaceData outSurfaceData)
 {
-    outSurfaceData = (FernSurfaceData)0;
+    outSurfaceData = (SurfaceData)0;
     half4 shadingMap01 = SAMPLE_TEXTURE2D(_ShadingMap01, sampler_ShadingMap01, uv * _ShadingMap01_ST.xy + _ShadingMap01_ST.zw);
     half2 uvOffset = 0;
     #if EYE
@@ -382,9 +380,9 @@ inline void InitializeNPRStandardSurfaceData(float2 uv, InputData inputData, out
 }
 
 
-inline void InitializeNPRStandardSurfaceData(float2 uv, out FernSurfaceData outSurfaceData)
+inline void InitializeNPRStandardSurfaceData(float2 uv, out SurfaceData outSurfaceData)
 {
-    outSurfaceData = (FernSurfaceData)0;
+    outSurfaceData = (SurfaceData)0;
     half4 shadingMap01 = SAMPLE_TEXTURE2D(_ShadingMap01, sampler_ShadingMap01, uv);
     half2 uvOffset = 0;
     uv += uvOffset;

@@ -236,7 +236,7 @@ Shader "FernRender/URP/FERNMicroGarin"
             #pragma fragment ShadowPassFragment
 
             #include "MicroGrainInput.hlsl"
-            #include "../ShaderLibrary/ShadowCasterPass.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/FernShaderLibrary/ShadowCasterPass.hlsl"
             ENDHLSL
         }
         
@@ -339,7 +339,7 @@ Shader "FernRender/URP/FERNMicroGarin"
             #pragma shader_feature_local_fragment _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
 
             #include "MicroGrainInput.hlsl"
-            #include "../ShaderLibrary/DepthOnlyPass.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/FernShaderLibrary/DepthOnlyPass.hlsl"
             ENDHLSL
         }
 

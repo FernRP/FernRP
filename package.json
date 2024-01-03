@@ -10,6 +10,10 @@
     "com.unity.render-pipelines.core": "14.0.8",
     "com.unity.shadergraph": "14.0.8"
   },
+  "author": {
+    "name": "Fern",
+    "url": "https://github.com/FernRP"
+  },
   "keywords": [
     "graphics",
     "performance",
@@ -24,6 +28,5 @@
       "description": "Collection of scenes showcasing different features of the Universal Render Pipeline.",
       "path": "Samples~/URPPackageSamples"
     }
-  ],
-  "hideInEditor": false
+  ]
 }

@@ -210,4 +210,5 @@ void ApplyDecalToSurfaceData(float4 positionCS, inout SurfaceData surfaceData, i
         surfaceData.smoothness);
 #endif
 }
+
 #endif // UNIVERSAL_DBUFFER_INCLUDED

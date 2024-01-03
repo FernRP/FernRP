@@ -1,5 +1,5 @@
-#ifndef UNIVERSAL_NPRLIGHTING_INCLUDED
-#define UNIVERSAL_NPRLIGHTING_INCLUDED
+#ifndef UNIVERSAL_FERNLITTING_INPUT_INCLUDED
+#define UNIVERSAL_FERNLITTING_INPUT_INCLUDED
 
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/BRDF.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Debug/Debugging3D.hlsl"
@@ -8,176 +8,343 @@
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/AmbientOcclusion.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DBuffer.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
-#include "../ShaderLibrary/DeclareDepthShadowTexture.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/FernShaderLibrary/DeclareDepthShadowTexture.hlsl"
 #include "FernShaderUtils.hlsl"
-#include "../ShaderLibrary/NPRBSDF.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/FernShaderLibrary/MicroGarinBSDF.hlsl"
 
-#if FACE
-CBUFFER_START(SDFFaceObjectToWorld)
-    float4x4 _FaceObjectToWorld;
-CBUFFER_END
-#endif
-
-// Global Property
-half4 _DepthTextureSourceSize;
-half _CameraAspect;
-half _CameraFOV;
+//paper: https://hal.science/hal-04220006
 
 ///////////////////////////////////////////////////////////////////////////////
 //                      Lighting Functions                                   //
 ///////////////////////////////////////////////////////////////////////////////
 
+// https://seblagarde.wordpress.com/2013/04/29/memo-on-fresnel-equations/
+float3 FresnelDielectricConductor(float3 Eta, float3 Etak, float CosTheta)
+{  
+    float CosTheta2 = CosTheta * CosTheta;
+    float SinTheta2 = 1. - CosTheta2;
+    float3 Eta2 = Eta * Eta;
+    float3 Etak2 = Etak * Etak;
+
+    float3 t0 = Eta2 - Etak2 - SinTheta2;
+    float3 a2plusb2 = sqrt(t0 * t0 + 4. * Eta2 * Etak2);
+    float3 t1 = a2plusb2 + CosTheta2;
+    float3 a = sqrt(0.5f * (a2plusb2 + t0));
+    float3 t2 = 2. * a * CosTheta;
+    float3 Rs = (t1 - t2) / (t1 + t2);
+
+    float3 t3 = CosTheta2 * a2plusb2 + SinTheta2 * SinTheta2;
+    float3 t4 = t2 * SinTheta2;   
+    float3 Rp = Rs * (t3 - t4) / (t3 + t4);
+
+    return 0.5 * (Rp + Rs);
+}
+
+// https://seblagarde.wordpress.com/2013/04/29/memo-on-fresnel-equations/
+float3 FresnelDielectricDielectric(float3 Eta, float CosTheta)
+{
+    float SinTheta2 = 1. - CosTheta * CosTheta;
+
+    float3 t0 = sqrt(1. - (SinTheta2 / (Eta * Eta)));
+    float3 t1 = Eta * t0;
+    float3 t2 = Eta * CosTheta;
+
+    float3 rs = (CosTheta - t1) / (CosTheta + t1);
+    float3 rp = (t0 - t2) / (t0 + t2);
+
+    return 0.5 * (rs * rs + rp * rp);
+}
+
+
 /**
- * \brief DepthUV For Rim Or Shadow
- * \param offset 
- * \param reverseX usually use directional light's dir, but sometime need x reverse
- * \param positionCSXY 
- * \param mainLightDir 
- * \param depthTexWH 
- * \param addInputData 
+ * \brief Eq. 16
+ * \param tau_0 Micrograin distribution density
+ * \param beta_sqr roughness_porous4
+ * \param cos_theta_m 
  * \return 
  */
-inline uint2 GetDepthUVOffset(half offset, half reverseX, half2 positionCSXY, half3 mainLightDir, half2 depthTexWH, FernAddInputData addInputData)
+float D_our(float tau_0, float beta_sqr, float cos_theta_m)
 {
-    // 1 / depth when depth < 1 is wrong, this is like point light attenuation
-    // 0.5625 is aspect, hard code for now
-    // 0.333 is fov, hard code for now
-    float2 UVOffset = _CameraAspect * (offset * 2 * _CameraFOV / (1 + addInputData.linearEyeDepth)); 
-    half2 mainLightDirVS = TransformWorldToViewDir(mainLightDir, true).xz;
-    mainLightDirVS.x *= lerp(1, -1, reverseX);
-    UVOffset = mainLightDirVS * UVOffset;
-    half2 downSampleFix = _DepthTextureSourceSize.zw / depthTexWH.xy;
-    uint2 loadTexPos = positionCSXY / downSampleFix + UVOffset * depthTexWH.xy;
-    loadTexPos = min(loadTexPos, depthTexWH.xy-1);
-    return loadTexPos;
+    float cos2_theta_m = cos_theta_m * cos_theta_m;
+    float tan2_theta_m = (1. - cos2_theta_m) / cos2_theta_m;
+    float tmp = beta_sqr + tan2_theta_m;
+    float num = beta_sqr * log(1. - tau_0) * pow(1. - tau_0,tan2_theta_m / tmp);
+    float denum = tau_0 * PI * tmp * tmp * cos2_theta_m * cos2_theta_m;
+    return -num / denum;
 }
 
-inline half DepthShadow(half depthShadowOffset, half reverseX, half depthShadowThresoldOffset, half depthShadowSoftness, half2 positionCSXY, half3 mainLightDir, FernAddInputData addInputData)
-{
-    uint2 loadPos = GetDepthUVOffset(depthShadowOffset, reverseX, positionCSXY, mainLightDir, _CameraDepthShadowTexture_TexelSize.zw, addInputData);
-    float depthShadowTextureValue = LoadSceneDepthShadow(loadPos);
-    float depthTextureLinearDepth = DepthSamplerToLinearDepth(depthShadowTextureValue);
+// Eq. in supplemental
+float G1_our(float tau_0, float beta_sqr, float cos_theta)
+{ 
+    float pi_gamma = -log(1. - tau_0);
+    float exp_pi_gamma_minus_one = exp(pi_gamma) - 1.;
 
-    float depthTexShadowDepthDiffThreshold = 0.025f + depthShadowThresoldOffset;
-    half depthShadow = saturate((depthTextureLinearDepth - (addInputData.linearEyeDepth - depthTexShadowDepthDiffThreshold)) * 50 / depthShadowSoftness);
+    cos_theta = clamp(cos_theta,0.00001,0.99999);
+    float mu  = cos_theta / sqrt(1. - cos_theta * cos_theta);
+    
+    float beta2  = beta_sqr;
+    float beta4  = beta2  * beta2;
+    float beta6  = beta4  * beta2;
+    float beta8  = beta6  * beta2;
+    float beta10 = beta8  * beta2;
+    float beta12 = beta10 * beta2;
+    
+    float mu2  = mu   * mu;
+    float mu4  = mu2  * mu2;
+    float mu6  = mu4  * mu2;
+    float mu8  = mu6  * mu2;
+    float mu10 = mu8  * mu2;
+    float mu12 = mu10 * mu2;
+    
+    float beta2_mu2 = beta2 + mu2;
+    float sqrt_beta2_mu2 = sqrt(beta2_mu2);
+    
+    float F0 = pi_gamma * (-mu + sqrt_beta2_mu2)/(2.*mu);
 
-    return depthShadow;
+    float F1 = pow(pi_gamma,2.) * (beta2+2. * mu * (mu-sqrt_beta2_mu2))/(8. * mu * sqrt_beta2_mu2);
+
+    float F2 = pow(pi_gamma,3.) * (3. * beta4+12. * beta2 * mu2+8. * mu4-8. * mu * pow(beta2_mu2,3./2.))/(96. * mu * pow(beta2_mu2,3./2.));
+
+    float F3 = pow(pi_gamma,4.) * (5. * beta6+30. * beta4 * mu2+40. * beta2 * mu4+16. * mu6-16. * mu * pow(beta2_mu2,5./2.))/(768. * mu * pow(beta2_mu2,5./2.));
+
+    float F4 = pow(pi_gamma,5.) * (35. * beta8+280. * beta6 * mu2+560. * beta4 * mu4+448. * beta2 * mu6+128. * mu8-128. * mu * pow(beta2_mu2,7./2.))/(30720. * mu * pow(beta2_mu2,7./2.));
+
+    float F5 = pow(pi_gamma,6.) * (63. * beta10+630. * beta8 * mu2+1680. * beta6 * mu4+2016. * beta4 * mu6+1152. * beta2 * mu8+256. * mu10-256. * mu * pow(beta2_mu2,9./2.))/(368640. * mu * pow(beta2_mu2,9./2.));
+
+    float F6 = pow(pi_gamma,7.) * (231. * beta12+2772. * beta10 * mu2+9240. * beta8 * mu4+14784. * beta6 * mu6+12672. * beta4 * mu8+5632. * beta2 * mu10 + 1024. * mu12-1024. * mu * pow(beta2_mu2,11./2.))/(10321920. * mu * pow(beta2_mu2,11./2.));
+    
+    float lambda_ = (F0 + F1 + F2 + F3 + F4 + F5 + F6) / exp_pi_gamma_minus_one;
+    
+    return 1. / (1. + lambda_);
 }
 
-inline half DepthRim(half depthRimOffset, half reverseX, half rimDepthDiffThresholdOffset, half2 positionCSXY, half3 mainLightDir, FernAddInputData addInputData)
+float D_ggx(float alpha_sqr, float cos_theta)
 {
-    int2 loadPos = GetDepthUVOffset(depthRimOffset, reverseX, positionCSXY, mainLightDir,  _DepthTextureSourceSize.zw, addInputData);
-    float depthTextureValue = LoadSceneDepth(loadPos);
-    float depthTextureLinearDepth = DepthSamplerToLinearDepth(depthTextureValue);
-    half depthRim = saturate((depthTextureLinearDepth - (addInputData.linearEyeDepth + rimDepthDiffThresholdOffset)));
-    depthRim = lerp(0, depthRim, addInputData.linearEyeDepth);
-    return depthRim;
+    float cos2_theta = cos_theta*cos_theta;
+    float tan2_theta = (1.-cos2_theta) / cos2_theta;
+   
+    float denom = PI * cos2_theta * cos2_theta * (alpha_sqr + tan2_theta)*(alpha_sqr + tan2_theta);
+    
+    return alpha_sqr / denom;
 }
 
-#if FACE
-inline void SDFFaceUV(half reversal, half faceArea, out half2 result)
-    {
-        Light mainLight = GetMainLight();
-        half2 lightDir = normalize(mainLight.direction.xz);
 
-        half2 Front = normalize(_FaceObjectToWorld._13_33);
-        half2 Right = normalize(_FaceObjectToWorld._11_31);
-
-        float FdotL = dot(Front, lightDir);
-        float RdotL = dot(Right, lightDir) * lerp(1, -1, reversal);
-        result.x = 1 - max(0,-(acos(FdotL) * INV_PI * 90.0 /(faceArea+90.0) -0.5) * 2);
-        result.y = 1 - 2 * step(RdotL, 0);
-    }
-
-    inline half3 SDFFaceDiffuse(half4 uv, LightingData lightData, half SDFShadingSoftness, half3 highColor, half3 darkColor, TEXTURE2D_X_PARAM(_SDFFaceTex, sampler_SDFFaceTex))
-    {
-        half FdotL = uv.z;
-        half sign = uv.w;
-        half SDFMap = SAMPLE_TEXTURE2D(_SDFFaceTex, sampler_SDFFaceTex, uv.xy * float2(-sign, 1)).r;
-        //half diffuseRadiance = saturate((abs(FdotL) - SDFMap) * SDFShadingSoftness * 500);
-        half diffuseRadiance = smoothstep(-SDFShadingSoftness * 0.1, SDFShadingSoftness * 0.1, (abs(FdotL) - SDFMap)) * lightData.ShadowAttenuation;
-        half3 diffuseColor = lerp(darkColor.rgb, highColor.rgb, diffuseRadiance);
-        return diffuseColor;
-    }
-#endif
-
-half3 LightingLambert(half3 lightColor, half3 lightDir, half3 normal)
+float lambda_ggx(float alpha_sqr, float tan_theta)
 {
-    half NdotL = saturate(dot(normal, lightDir));
-    return lightColor * NdotL;
+    return (-1. + sqrt(1.+alpha_sqr*tan_theta*tan_theta))/2.;
 }
 
-half3 VertexLighting(float3 positionWS, half3 normalWS)
+float G1_ggx(float alpha_sqr, float cos_theta)
 {
-    half3 vertexLightColor = half3(0.0, 0.0, 0.0);
+    float tan_theta = sqrt(1. - cos_theta * cos_theta) / cos_theta;
+    return 1./(1.+lambda_ggx(alpha_sqr,tan_theta));
+}
 
-#ifdef _ADDITIONAL_LIGHTS_VERTEX
-    uint lightsCount = GetAdditionalLightsCount();
-    LIGHT_LOOP_BEGIN(lightsCount)
-        Light light = GetAdditionalLight(lightIndex, positionWS);
-        half3 lightColor = light.color * light.distanceAttenuation;
-        vertexLightColor += LightingLambert(lightColor, light.direction, normalWS);
-    LIGHT_LOOP_END
-#endif
+float G_ggx(float alpha_sqr, float cos_theta_i, float cos_theta_o)
+{
+    return G1_ggx(alpha_sqr,cos_theta_i) * G1_ggx(alpha_sqr,cos_theta_o);
+}
 
-    return vertexLightColor;
+
+float G_our(float tau_0, float beta_sqr, float alpha_sqr, float cos_theta_i, float cos_theta_o)
+{
+    return G1_our(tau_0, beta_sqr, cos_theta_i) * G1_our(tau_0, beta_sqr, cos_theta_o);
+}
+
+
+// Eq 18.
+float alpha2beta(float alpha,float tau_0)
+{
+    float fac = sqrt(-tau_0 / log(1. - tau_0));
+    return alpha / fac;
+}
+
+// Eq 18.
+float beta2alpha(float beta, float tau_0)
+{
+    float fac = sqrt(-tau_0 / log(1. - tau_0));
+    return beta * fac;
+}
+    
+// Eq. in section visible filling factor
+float gamma_beta(float beta_sqr,float cos_theta)
+{
+    float cos2_theta = cos_theta * cos_theta;
+    float sin2_theta = 1. - cos2_theta;
+    return sqrt(beta_sqr * sin2_theta + cos2_theta);
+}
+
+// Eq. in section Visible filling factor
+float gamma_beta_plus(float beta_sqr, float cos_theta)
+{
+    return 0.5 * (cos_theta + gamma_beta(beta_sqr,cos_theta));
+}
+
+// Eq. 21
+float tau_theta(float tau_0, float beta_sqr, float cos_theta)
+{
+    return 1. - pow((1. - tau_0) , (gamma_beta(beta_sqr,cos_theta)/cos_theta));
+}
+
+
+// Eq. 22
+float tau_theta_plus(float tau_0, float beta_sqr, float cos_theta)
+{
+    return 1. - sqrt((1. - tau_theta(tau_0, beta_sqr, cos_theta))*(1. - tau_0));
+}
+
+// Eq. 24
+float visibility_weight(float tau_0, float beta_sqr, float cos_theta_i, float cos_theta_o)
+{
+    float cos_theta_i_ = clamp(abs(cos_theta_i),0.00001,1.);
+    float cos_theta_o_ = clamp(abs(cos_theta_o),0.00001,1.);
+    return 1. - ((1. - tau_theta_plus(tau_0,beta_sqr, cos_theta_i_)) * (1. - tau_theta_plus(tau_0,beta_sqr, cos_theta_o_)) / (1.- tau_0));
+}
+
+// Eq. 1
+float3 visibility_blend_our(float tau_0, float beta_sqr, float cos_theta_i, float cos_theta_o, float3 brdf_s, float3 brdf_b)
+{
+    return lerp(brdf_b, brdf_s, visibility_weight(tau_0, beta_sqr, cos_theta_i, cos_theta_o));
+}
+
+float3 micrograin_conductor_bsdf(
+      float tau_0
+    , float beta_sqr
+    , float alpha_sqr
+    , float3 R0
+    , float cos_theta_i
+    , float cos_theta_o
+    , float cos_theta_h
+    , float cos_theta_d)
+{    
+    float D = D_our(tau_0,beta_sqr,cos_theta_h);
+    float G = G_our(tau_0, beta_sqr, alpha_sqr, cos_theta_i,cos_theta_o);
+    float3 eta = (1. + sqrt(R0))/(1. - sqrt(R0));
+    float3 F = FresnelDielectricDielectric(eta,cos_theta_d);
+    return D*G*F / (4. * cos_theta_i * cos_theta_o);
 }
 
 /**
- * \brief Get Cell Shading Radiance
- * \param radiance 
- * \param shadowThreshold 
- * \param shadowSmooth 
- * \param diffuse [Out]
+ * \brief 
+ * \param tau_0 
+ * \param beta_sqr roughness_porous4
+ * \param alpha_sqr roughness_base4
+ * \param R0 
+ * \param kd 
+ * \param cos_theta_i 
+ * \param cos_theta_o 
+ * \param cos_theta_h 
+ * \param cos_theta_d 
+ * \return 
  */
-inline half3 CellShadingDiffuse(inout half radiance, half cellThreshold, half cellSmooth, half3 highColor, half3 darkColor)
+float3 micrograin_plastic_bsdf(
+      float tau_0
+    , float beta_sqr
+    , float alpha_sqr
+    , float3 R0
+    , float3 kd
+    , float cos_theta_i
+    , float cos_theta_o
+    , float cos_theta_h
+    , float cos_theta_d)
 {
-    half3 diffuse = 0;
-    //cellSmooth *= 0.5;
-    radiance = saturate(1 + (radiance - cellThreshold - cellSmooth) / max(cellSmooth, 1e-3));
-    // 0.5 cellThreshold 0.5 smooth = Lambert
-    //radiance = LinearStep(cellThreshold - cellSmooth, cellThreshold + cellSmooth, radiance);
-    diffuse = lerp(darkColor.rgb, highColor.rgb, radiance);
-    return diffuse;
+    float3 eta = (1. + sqrt(R0))/(1. - sqrt(R0));
+    float D = D_our(tau_0,beta_sqr,cos_theta_h);
+    float G = G_our(tau_0, beta_sqr, alpha_sqr, cos_theta_i,cos_theta_o);
+    float3 F = FresnelDielectricDielectric(eta,cos_theta_d);
+    float3 spec = D*G*F / (4. * cos_theta_i * cos_theta_o);
+    
+    float3 Ti = 1. - FresnelDielectricDielectric(eta,cos_theta_i);
+    float3 To = 1. - FresnelDielectricDielectric(eta,cos_theta_o);
+    float3 diff = To * Ti * kd / PI;
+    
+    return spec + diff;
 }
 
-inline half3 CellBandsShadingDiffuse(inout half radiance, half cellThreshold, half cellBandSoftness, half cellBands, half3 highColor, half3 darkColor)
-{
-    half3 diffuse = 0;
-    //cellSmooth *= 0.5;
-    radiance = saturate(1 + (radiance - cellThreshold - cellBandSoftness) / max(cellBandSoftness, 1e-3));
-    // 0.5 cellThreshold 0.5 smooth = Lambert
-    //radiance = LinearStep(cellThreshold - cellSmooth, cellThreshold + cellSmooth, radiance);
-
-    #if _CELLBANDSHADING
-        half bandsSmooth = cellBandSoftness;
-        radiance = saturate((LinearStep(0.5 - bandsSmooth, 0.5 + bandsSmooth, frac(radiance * cellBands)) + floor(radiance * cellBands)) / cellBands);
-    #endif
-
-    diffuse = lerp(darkColor.rgb, highColor.rgb, radiance);
-    return diffuse;
+float3 ggx_conductor_brdf(
+      float alpha_sqr
+    , float3 R0
+    , float cos_theta_i
+    , float cos_theta_o
+    , float cos_theta_h
+    , float cos_theta_d)
+{    
+    float3 eta = (1. + sqrt(R0))/(1. - sqrt(R0));
+    float D = D_ggx(alpha_sqr,cos_theta_h);
+    float G = G_ggx(alpha_sqr, cos_theta_i,cos_theta_o);
+    float3 F = FresnelDielectricDielectric(eta,cos_theta_d);
+    return D*G*F / (4. * cos_theta_i * cos_theta_o);
 }
 
-inline half3 RampShadingDiffuse(half radiance, half rampVOffset, half uOffset, TEXTURE2D_PARAM(rampMap, sampler_rampMap))
+float3 ggx_plastic_brdf(
+      float alpha_sqr
+    , float3 R0
+    , float3 kd
+    , float cos_theta_i
+    , float cos_theta_o
+    , float cos_theta_h
+    , float cos_theta_d)
 {
-    half3 diffuse = 0;
-    float2 uv = float2(saturate(radiance + uOffset), rampVOffset);
-    diffuse = SAMPLE_TEXTURE2D(rampMap, sampler_rampMap, uv).rgb;
-    return diffuse;
+    float3 eta = (1. + sqrt(R0))/(1. - sqrt(R0));
+    float D = D_ggx(alpha_sqr, cos_theta_h);
+    float G = G_ggx(alpha_sqr, cos_theta_i,cos_theta_o);
+    float3 F = FresnelDielectricDielectric(eta,cos_theta_d);
+    float3 spec = D*G*F / (4. * cos_theta_i * cos_theta_o);
+    
+    float3 Ti = 1. - FresnelDielectricDielectric(eta,cos_theta_i);
+    float3 To = 1. - FresnelDielectricDielectric(eta,cos_theta_o);
+    float3 diff = To * Ti * kd / PI;
+    
+    return spec + diff;
 }
 
-half GGXDirectBRDFSpecular(BRDFData brdfData, half3 LoH, half3 NoH)
+float3 MicrograinBSDF_Eval(float3 normal, float3 viewDir, float3 lightDir, float tau_0, float roughness_porous2, float roughness_base2
+    , float3 diffuse_porous
+    , float3 diffuse_base
+    , float3 specular_porous
+    , float3 specular_base)
 {
-    float d = NoH.x * NoH.x * brdfData.roughness2MinusOne + 1.00001f;
-    half LoH2 = LoH.x * LoH.x;
-    half specularTerm = brdfData.roughness2 / ((d * d) * max(0.1h, LoH2) * brdfData.normalizationTerm);
+    float3 wh = normalize(viewDir+lightDir);
+    float cos_theta_o = clamp(dot(normal,lightDir) ,0.0,1.0);
+    float cos_theta_i = clamp(dot(normal,viewDir) ,0.0,1.0);
+    float cos_theta_h = clamp(dot(normal,wh) ,0.0,1.0);
+    float cos_theta_d = clamp(dot(wh,viewDir),0.0,1.0);
+    roughness_porous2 = clamp(roughness_porous2,0.001,1.);
+    tau_0 = clamp(tau_0,0.001,0.999);
+    float roughness_porous4 = roughness_porous2*roughness_porous2;
+    float roughness_base4 = roughness_base2*roughness_base2;
+    
+    float3 brdf_s = 
+        micrograin_plastic_bsdf(
+          tau_0
+        , roughness_porous4
+        , roughness_base4
+        , specular_porous
+        , diffuse_porous
+        , cos_theta_i
+        , cos_theta_o
+        , cos_theta_h
+        , cos_theta_d);
+    
+    float3 brdf_b = 
+        ggx_plastic_brdf(
+        roughness_base4
+        , specular_base
+        , diffuse_base
+        , cos_theta_i
+        , cos_theta_o
+        , cos_theta_h
+        , cos_theta_d);
+    
+    float3 col = visibility_blend_our(
+          tau_0
+        , roughness_base4
+        , cos_theta_i
+        , cos_theta_o
+        , brdf_s
+        , brdf_b);
 
-    #if defined (SHADER_API_MOBILE) || defined (SHADER_API_SWITCH)
-    specularTerm = specularTerm - HALF_MIN;
-    specularTerm = clamp(specularTerm, 0.0, 100.0); // Prevent FP16 overflow on mobiles
-    #endif
-
-    return specularTerm;
+    return col * cos_theta_o;
 }
 
 half3 StylizedSpecular(half3 albedo, half ndothClamp, half specularSize, half specularSoftness, half albedoWeight)
@@ -195,53 +362,6 @@ half BlinnPhongSpecular(half shininess, half ndoth)
     half normalize = (phongSmoothness + 7) * INV_PI8;
     half specular = max(pow(ndoth, phongSmoothness) * normalize, 1e-4);
     return specular;
-}
-
-inline half3 AnisotropyDoubleSpecular(BRDFData brdfData, half2 uv, half4 tangentWS, InputData inputData, LightingData lightingData,
-    AnisoSpecularData anisoSpecularData, TEXTURE2D_PARAM(anisoDetailMap, sampler_anisoDetailMap))
-{
-    half specMask = 1; // TODO ADD Mask
-    half4 detailNormal = SAMPLE_TEXTURE2D(anisoDetailMap,sampler_anisoDetailMap, uv);
-
-    float2 jitter =(detailNormal.y-0.5) * float2(anisoSpecularData.spread1,anisoSpecularData.spread2);
-
-    float sgn = tangentWS.w;
-    float3 T = normalize(sgn * cross(inputData.normalWS.xyz, tangentWS.xyz));
-    //float3 T = normalize(tangentWS.xyz);
-
-    float3 t1 = ShiftTangent(T, inputData.normalWS.xyz, anisoSpecularData.specularShift + jitter.x);
-    float3 t2 = ShiftTangent(T, inputData.normalWS.xyz, anisoSpecularData.specularSecondaryShift + jitter.y);
-
-    float3 hairSpec1 = anisoSpecularData.specularColor * anisoSpecularData.specularStrength *
-        D_KajiyaKay(t1, lightingData.HalfDir, anisoSpecularData.specularExponent);
-    float3 hairSpec2 = anisoSpecularData.specularSecondaryColor * anisoSpecularData.specularSecondaryStrength *
-        D_KajiyaKay(t2, lightingData.HalfDir, anisoSpecularData.specularSecondaryExponent);
-
-    float3 F = F_Schlick(half3(0.2,0.2,0.2), lightingData.LdotHClamp);
-    half3 anisoSpecularColor = 0.25 * F * (hairSpec1 + hairSpec2) * lightingData.NdotLClamp * specMask * brdfData.specular;
-    return anisoSpecularColor;
-}
-
-inline half3 AngleRingSpecular(AngleRingSpecularData specularData, InputData inputData, half radiance, LightingData lightingData)
-{
-    half3 specularColor = 0;
-    half mask = specularData.mask;
-    float3 normalV = mul(UNITY_MATRIX_V, half4(inputData.normalWS, 0)).xyz;
-    float3 halfV = mul(UNITY_MATRIX_V, half4(lightingData.HalfDir, 0)).xyz;
-    half ndh = dot(normalize(normalV.xz), normalize(halfV.xz));
-
-    ndh = pow(ndh, 6) * specularData.width * radiance;
-
-    half lightFeather = specularData.softness * ndh;
-
-    half lightStepMax = saturate(1 - ndh + lightFeather);
-    half lightStepMin = saturate(1 - ndh - lightFeather);
-
-    half brightArea = LinearStep(lightStepMin, lightStepMax, min(mask, 0.99));
-    half3 lightColor_B = brightArea * specularData.brightColor;
-    half3 lightColor_S = LinearStep(specularData.threshold, 1, mask) * specularData.shadowColor;
-    specularColor = (lightColor_S + lightColor_B) * specularData.intensity;
-    return specularColor;
 }
 
 half3 NPRGlossyEnvironmentReflection(half3 reflectVector, half3 positionWS, half2 normalizedScreenSpaceUV, half perceptualRoughness, half occlusion)
@@ -271,6 +391,10 @@ half3 NPRGlossyEnvironmentReflection(half3 reflectVector, half3 positionWS, half
     #endif // GLOSSY_REFLECTIONS
 }
 
+
+///////////////////////////////////////////////////////////////////////////////
+//                         Depth Screen Space                                //
+///////////////////////////////////////////////////////////////////////////////
 half DepthNormal(half depth)
 {
     half near = _ProjectionParams.y;
@@ -433,7 +557,7 @@ half3 NPRDiffuseLighting(BRDFData brdfData, half4 uv, LightingData lightingData,
     return diffuse;
 }
 
-half3 NPRSpecularLighting(BRDFData brdfData, FernSurfaceData surfData, Varyings input, InputData inputData, half3 albedo,
+half3 NPRSpecularLighting(BRDFData brdfData, SurfaceData surfData, Varyings input, InputData inputData, half3 albedo,
                           half radiance, LightingData lightData)
 {
     half3 specular = 0;
@@ -454,7 +578,7 @@ half3 NPRSpecularLighting(BRDFData brdfData, FernSurfaceData surfData, Varyings 
         InitAngleRingSpecularData(surfData.specularIntensity, angleRingSpecularData);
         specular = AngleRingSpecular(angleRingSpecularData, inputData, radiance, lightData);
     #endif
-    specular *= _SpecularColor.rgb * radiance * brdfData.specular;
+    specular *= radiance * brdfData.specular;
     return specular;
 }
 
@@ -474,28 +598,29 @@ TEXTURE2D(iChannel2);				SAMPLER(sampler_iChannel2);
  * \return 
  */
 half3 FernMainLightDirectLighting(BRDFData brdfData, BRDFData brdfDataClearCoat, Varyings input, InputData inputData,
-                                 FernSurfaceData surfData, LightingData lightData)
+                                 SurfaceData surfData, LightingData lightData)
 {
-    half radiance = LightingRadiance(lightData, _UseHalfLambert, surfData.occlusion, _UseRadianceOcclusion);
+    float perceptualRoughness_porous = 1 - surfData.porousSmoothness;
+    float roughness_porous = max(PerceptualRoughnessToRoughness(perceptualRoughness_porous), HALF_MIN_SQRT);
+    float roughness_porous2 = roughness_porous * roughness_porous;
+    float perceptualRoughness_base = 1 - surfData.smoothness;
+    float roughness_base = max(PerceptualRoughnessToRoughness(perceptualRoughness_base), HALF_MIN_SQRT);
+    float roughness_base2 = roughness_base * roughness_base;
 
-    half3 diffuse = NPRDiffuseLighting(brdfData, input.uv, lightData, radiance);
-    half3 specular = NPRSpecularLighting(brdfData, surfData, input, inputData, surfData.albedo, radiance, lightData);
-    half3 brdf = (diffuse + specular) * lightData.lightColor;
-    #if defined(_CLEARCOAT)
-        // Clear coat evaluates the specular a second timw and has some common terms with the base specular.
-        // We rely on the compiler to merge these and compute them only once.
-        half3 brdfCoat = kDielectricSpec.r * NPRSpecularLighting(brdfDataClearCoat, surfData, input, inputData, surfData.albedo, radiance, lightData);
-        // Mix clear coat and base layer using khronos glTF recommended formula
-        // https://github.com/KhronosGroup/glTF/blob/master/extensions/2.0/Khronos/KHR_materials_clearcoat/README.md
-        // Use NoV for direct too instead of LoH as an optimization (NoV is light invariant).
-        half NoV = saturate(dot(inputData.normalWS, inputData.viewDirectionWS));
-        // Use slightly simpler fresnelTerm (Pow4 vs Pow5) as a small optimization.
-        // It is matching fresnel used in the GI/Env, so should produce a consistent clear coat blend (env vs. direct)
-        half coatFresnel = kDielectricSpec.x + kDielectricSpec.a * Pow4(1.0 - NoV);
+    // base brdf
+    half oneMinusReflectivity = OneMinusReflectivityMetallic(surfData.metallic);
+    half3 brdfDiffuse_base = surfData.albedo * oneMinusReflectivity;
+    half3 brdfSpecular_base = lerp(kDieletricSpec.rgb, surfData.albedo, surfData.metallic);
 
-        brdf = brdf * (1.0 - surfData.clearCoatMask * coatFresnel) + brdfCoat * surfData.clearCoatMask * lightData.lightColor;
-    #endif // _CLEARCOAT
-   
+    // porous brdf
+    half oneMinusReflectivity_s = OneMinusReflectivityMetallic(surfData.porousMetallic);
+    half3 brdfDiffuse_porous = surfData.porousColor * oneMinusReflectivity_s;
+    half3 brdfSpecular_porous = lerp(kDieletricSpec.rgb, surfData.porousColor, surfData.porousMetallic);
+
+    half3 brdf = MicrograinBSDF_Eval(inputData.normalWS, inputData.viewDirectionWS, lightData.lightDir,
+        surfData.porousDensity, roughness_porous2, roughness_base2,
+        brdfDiffuse_porous, brdfDiffuse_base, brdfSpecular_porous, brdfSpecular_base);
+    
     return brdf;
 }
 
@@ -531,7 +656,7 @@ half3 FernVertexLighting(float3 positionWS, half3 normalWS)
  * \return 
  */
 half3 FernAdditionLightDirectLighting(BRDFData brdfData, BRDFData brdfDataClearCoat, Varyings input, InputData inputData,
-                                     FernSurfaceData surfData,
+                                     SurfaceData surfData,
                                      FernAddInputData addInputData, half4 shadowMask, half meshRenderingLayers,
                                      AmbientOcclusionFactor aoFactor)
 {
@@ -552,7 +677,7 @@ half3 FernAdditionLightDirectLighting(BRDFData brdfData, BRDFData brdfDataClearC
     #endif
         {
             LightingData lightingData = InitializeLightingData(light, input, inputData.normalWS, inputData.viewDirectionWS, addInputData);
-            half radiance = LightingRadiance(lightingData, _UseHalfLambert, surfData.occlusion, _UseRadianceOcclusion);
+            half radiance = LightingRadiance(lightingData);
             // Additional Light Filter Referenced from https://github.com/unity3d-jp/UnityChanToonShaderVer2_Project
             float pureIntencity = 0.299 * lightingData.lightColor.r + 0.587 * lightingData.lightColor.g + 0.114 * lightingData.lightColor.b;
             lightingData.lightColor = max(0, lerp(lightingData.lightColor, min(lightingData.lightColor, lightingData.lightColor / pureIntencity * _LightIntensityClamp), _Is_Filter_LightColor));
@@ -571,7 +696,7 @@ half3 FernAdditionLightDirectLighting(BRDFData brdfData, BRDFData brdfDataClearC
     #endif
         {
             LightingData lightingData = InitializeLightingData(light, input, inputData.normalWS, inputData.viewDirectionWS, addInputData);
-            half radiance = LightingRadiance(lightingData, _UseHalfLambert, surfData.occlusion, _UseRadianceOcclusion);
+            half radiance = LightingRadiance(lightingData);
             // Additional Light Filter Referenced from https://github.com/unity3d-jp/UnityChanToonShaderVer2_Project
             float pureIntencity = 0.299 * lightingData.lightColor.r + 0.587 * lightingData.lightColor.g + 0.114 * lightingData.lightColor.b;
             lightingData.lightColor = max(0, lerp(lightingData.lightColor, min(lightingData.lightColor, lightingData.lightColor / pureIntencity * _LightIntensityClamp), _Is_Filter_LightColor));
@@ -588,10 +713,9 @@ half3 FernAdditionLightDirectLighting(BRDFData brdfData, BRDFData brdfDataClearC
     #endif
         {
             LightingData lightingData = InitializeLightingData(light, input, inputData.normalWS, inputData.viewDirectionWS, addInputData);
-            half radiance = LightingRadiance(lightingData, _UseHalfLambert, surfData.occlusion, _UseRadianceOcclusion);
+            half radiance = LightingRadiance(lightingData);
             // Additional Light Filter Referenced from https://github.com/unity3d-jp/UnityChanToonShaderVer2_Project
             float pureIntencity = 0.299 * lightingData.lightColor.r + 0.587 * lightingData.lightColor.g + 0.114 * lightingData.lightColor.b;
-            lightingData.lightColor = max(0, lerp(lightingData.lightColor, min(lightingData.lightColor, lightingData.lightColor / pureIntencity * _LightIntensityClamp), _Is_Filter_LightColor));
             half3 addLightColor = FernMainLightDirectLighting(brdfData, brdfDataClearCoat, input, inputData, surfData, lightingData);
             additionLightColor += addLightColor;
         }
@@ -643,4 +767,4 @@ half3 FernIndirectLighting(BRDFData brdfData, InputData inputData, Varyings inpu
     return indirectColor;
 }
 
-#endif // UNIVERSAL_INPUT_SURFACE_PBR_INCLUDED
+#endif // UNIVERSAL_FERNLITTING_INPUT_INCLUDED

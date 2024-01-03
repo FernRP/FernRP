@@ -1,8 +1,7 @@
-#ifndef UNIVERSAL_FERN_SURFACE_DATA_INCLUDED
-#define UNIVERSAL_FERN_SURFACE_DATA_INCLUDED
+#ifndef UNIVERSAL_SURFACE_DATA_NPR_INCLUDED
+#define UNIVERSAL_SURFACE_DATA_NPR_INCLUDED
 
-// Must match Universal ShaderGraph master node
-struct FernSurfaceData
+struct SurfaceData
 {
     half3 albedo;
     half3 specular;
@@ -20,18 +19,9 @@ struct FernSurfaceData
     half  innerLine;
     
     #if EYE
-        half3 corneaNormalData;
-        half3 irisNormalData;
-        half  parallax;
-    #endif
-
-    #if _MIRCOGARIN
-        half3  porousColor;
-        half  porousDensity;
-        half  porousSmoothness;
-        half  baseReflectivity;
-        half  porousReflectivity;
-        half  porousMetallic;
+    half3 corneaNormalData;
+    half3 irisNormalData;
+    half  parallax;
     #endif
 };
 

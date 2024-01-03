@@ -267,7 +267,7 @@ Shader "FernRender/URP/FERNNPREye"
             #pragma fragment ShadowPassFragment
 
             #include "NPRStandardInput.hlsl"
-            #include "../ShaderLibrary/ShadowCasterPass.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/FernShaderLibrary/ShadowCasterPass.hlsl"
             ENDHLSL
         }
 
@@ -305,7 +305,7 @@ Shader "FernRender/URP/FERNNPREye"
             #pragma shader_feature_local_fragment _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
 
             #include "NPRStandardInput.hlsl"
-            #include "../ShaderLibrary/DepthOnlyPass.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/FernShaderLibrary/DepthOnlyPass.hlsl"
             ENDHLSL
         }
 

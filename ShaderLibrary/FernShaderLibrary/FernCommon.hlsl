@@ -8,14 +8,8 @@
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/AmbientOcclusion.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DBuffer.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
-#include "../ShaderLibrary/DeclareDepthShadowTexture.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/FernShaderLibrary/DeclareDepthShadowTexture.hlsl"
 #include "FernShaderUtils.hlsl"
-
-#if _NPR
-#include "../ShaderLibrary/NPRSurfaceData.hlsl"
-#elif _MIRCOGARIN 
-#include "../ShaderLibrary/MicroGarinSurfaceData.hlsl"
-#endif
 
 #define PI8 25.1327
 #define INV_PI8 0.039789

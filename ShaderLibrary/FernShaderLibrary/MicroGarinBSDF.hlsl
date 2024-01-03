@@ -1,7 +1,7 @@
 #ifndef UNIVERSAL_FERN_BSDF_INCLUDED
 #define UNIVERSAL_FERN_BSDF_INCLUDED
 
-BRDFData CreateNPRClearCoatBRDFData(FernSurfaceData surfaceData, inout BRDFData brdfData)
+BRDFData CreateNPRClearCoatBRDFData(SurfaceData surfaceData, inout BRDFData brdfData)
 {
     BRDFData brdfDataClearCoat = (BRDFData)0;
 
@@ -13,7 +13,7 @@ BRDFData CreateNPRClearCoatBRDFData(FernSurfaceData surfaceData, inout BRDFData 
     return brdfDataClearCoat;
 }
 
-void FernInitializeBRDFData(FernSurfaceData surfaceData, out BRDFData outBRDFData, out BRDFData outClearBRDFData)
+void FernInitializeBRDFData(SurfaceData surfaceData, out BRDFData outBRDFData, out BRDFData outClearBRDFData)
 {
     InitializeBRDFData(surfaceData.albedo, surfaceData.metallic, surfaceData.specular, surfaceData.smoothness, surfaceData.alpha, outBRDFData);
     outClearBRDFData = outBRDFData;
@@ -22,4 +22,4 @@ void FernInitializeBRDFData(FernSurfaceData surfaceData, out BRDFData outBRDFDat
     #endif
 }
 
-#endif
+#endif // UNIVERSAL_FERN_BSDF_INCLUDED
