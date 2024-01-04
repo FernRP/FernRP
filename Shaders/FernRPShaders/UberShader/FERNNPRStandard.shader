@@ -46,14 +46,14 @@ Shader "FernRender/URP/FERNNPRStandard"
         [SubToggle(Specular, _SPECULARMASK)] [ShowIf(_enum_specular, NEqual, 0)] _SpecularMask("Use Specular Mask", Float) = 0.0
         [Channel(Specular_SPECULARMASK)] _SpecularIntensityChannel("Specular Intensity Channel", Vector) = (1,0,0,0)
         [Sub(Specular)] [ShowIf(_enum_specular, NEqual, 0)] _SpecularColor ("Specular Color", Color) = (1,1,1,1)
-        [Sub(Specular)] [ShowIf(_enum_specular, NEqual, 0)]  _SpecularIntensity ("Specular Intensity", Range(0,8)) = 1 // version: 1.0.1
+        [Sub(Specular)] [ShowIf(_enum_specular, NEqual, 0)]  _SpecularIntensity ("Specular Intensity", Range(0,8)) = 1
         [Sub(Specular)] [ShowIf(_enum_specular, Equal, 2)] _StylizedSpecularSize ("Stylized Specular Size", Range(0,1)) = 0.1
         [Sub(Specular)] [ShowIf(_enum_specular, Equal, 2)] _StylizedSpecularSoftness ("Stylized Specular Softness", Range(0.001,1)) = 0.05
         [Sub(Specular)] [ShowIf(_enum_specular, Equal, 2)] _StylizedSpecularAlbedoWeight ("Specular Color Albedo Weight", Range(0,1)) = 0
         [Sub(Specular)] [ShowIf(_enum_specular, Equal, 3)] _Shininess ("BlinnPhong Shininess", Range(0,1)) = 1
         [SubToggle(Specular, _SPECULARAA)] [ShowIf(_enum_specular, Equal, 1)] _SpecularAA("Use Specular AA", Float) = 0.0
-        [Sub(Specular_SPECULARAA)] _SpaceScreenThresold ("SpecularAA Threshold", Range(0,1)) = 0.5 // version: 1.0.0 is Specular AA Variant
-        [Sub(Specular_SPECULARAA)] _SpecularAAStrength ("SpecularAA Strength", Range(0,1)) = 1 // version: 1.0.0 is Specular AA Thresold
+        [Sub(Specular_SPECULARAA)] _SpaceScreenThresold ("SpecularAA Threshold", Range(0,1)) = 0.5
+        [Sub(Specular_SPECULARAA)] _SpecularAAStrength ("SpecularAA Strength", Range(0,1)) = 1
         
         [Main(Environment, _, off, off)]
         _groupEnvironment ("EnvironmentSettings", float) = 1
