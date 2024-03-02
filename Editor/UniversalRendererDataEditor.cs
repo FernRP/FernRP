@@ -27,6 +27,7 @@ namespace UnityEditor.Rendering.Universal
             public static readonly GUIContent RenderPassLabel = EditorGUIUtility.TrTextContent("Native RenderPass", "Enables URP to use RenderPass API. Has no effect on OpenGLES2");
 
             public static readonly GUIContent RenderPassSectionLabel = EditorGUIUtility.TrTextContent("RenderPass", "This section contains properties related to render passes.");
+            public static readonly GUIContent RenderForwardGBuffer = EditorGUIUtility.TrTextContent("Render Forward GBuffer", "This section contains properties related to rendering Forward GBuffer.");
             public static readonly GUIContent ShadowsSectionLabel = EditorGUIUtility.TrTextContent("Shadows", "This section contains properties related to rendering shadows.");
             public static readonly GUIContent PostProcessingSectionLabel = EditorGUIUtility.TrTextContent("Post-processing", "This section contains properties related to rendering post-processing.");
 
@@ -34,6 +35,7 @@ namespace UnityEditor.Rendering.Universal
 
             public static readonly GUIContent accurateGbufferNormalsLabel = EditorGUIUtility.TrTextContent("Accurate G-buffer normals", "Normals in G-buffer use octahedron encoding/decoding. This improves visual quality but might reduce performance.");
             public static readonly GUIContent defaultStencilStateLabel = EditorGUIUtility.TrTextContent("Default Stencil State", "Configure the stencil state for the opaque and transparent render passes.");
+            public static readonly GUIContent renderForwardGBuffer = EditorGUIUtility.TrTextContent("Render Forward GBuffer", "When enable, will render GBuffer in Forward Rendering Path");
             public static readonly GUIContent shadowTransparentReceiveLabel = EditorGUIUtility.TrTextContent("Transparent Receive Shadows", "When disabled, none of the transparent objects will receive shadows.");
             public static readonly GUIContent invalidStencilOverride = EditorGUIUtility.TrTextContent("Error: When using the deferred rendering path, the Renderer requires the control over the 4 highest bits of the stencil buffer to store Material types. The current combination of the stencil override options prevents the Renderer from controlling the required bits. Try changing one of the options to Replace.");
             public static readonly GUIContent intermediateTextureMode = EditorGUIUtility.TrTextContent("Intermediate Texture", "Controls when URP renders via an intermediate texture.");
@@ -49,6 +51,7 @@ namespace UnityEditor.Rendering.Universal
         SerializedProperty m_DefaultStencilState;
         SerializedProperty m_PostProcessData;
         SerializedProperty m_Shaders;
+        SerializedProperty m_RenderForwardGBufferProp;
         SerializedProperty m_ShadowTransparentReceiveProp;
         SerializedProperty m_IntermediateTextureMode;
 
@@ -64,6 +67,7 @@ namespace UnityEditor.Rendering.Universal
             m_DefaultStencilState = serializedObject.FindProperty("m_DefaultStencilState");
             m_PostProcessData = serializedObject.FindProperty("postProcessData");
             m_Shaders = serializedObject.FindProperty("shaders");
+            m_RenderForwardGBufferProp = serializedObject.FindProperty("m_RenderForwardGBuffer");
             m_ShadowTransparentReceiveProp = serializedObject.FindProperty("m_ShadowTransparentReceive");
             m_IntermediateTextureMode = serializedObject.FindProperty("m_IntermediateTextureMode");
         }
@@ -115,6 +119,13 @@ namespace UnityEditor.Rendering.Universal
             EditorGUILayout.PropertyField(m_UseNativeRenderPass, Styles.RenderPassLabel);
             EditorGUI.indentLevel--;
             EditorGUILayout.Space();
+            
+            EditorGUILayout.LabelField(Styles.RenderForwardGBuffer, EditorStyles.boldLabel);
+            EditorGUI.indentLevel++;
+            EditorGUILayout.PropertyField(m_RenderForwardGBufferProp, Styles.renderForwardGBuffer);
+            EditorGUI.indentLevel--;
+            EditorGUILayout.Space();
+            
             EditorGUILayout.LabelField(Styles.ShadowsSectionLabel, EditorStyles.boldLabel);
             EditorGUI.indentLevel++;
             EditorGUILayout.PropertyField(m_ShadowTransparentReceiveProp, Styles.shadowTransparentReceiveLabel);

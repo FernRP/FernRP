@@ -22,7 +22,7 @@ namespace UnityEngine.Rendering.Universal
         ForcePrepass
     }
 
-    /// <summary>
+    /// <summary>forw
     /// Class containing resources needed for the <c>UniversalRenderer</c>.
     /// </summary>
     [Serializable, ReloadGroup, ExcludeFromPreset]
@@ -158,6 +158,7 @@ namespace UnityEngine.Rendering.Universal
         [SerializeField] LayerMask m_OpaqueLayerMask = -1;
         [SerializeField] LayerMask m_TransparentLayerMask = -1;
         [SerializeField] StencilStateData m_DefaultStencilState = new StencilStateData() { passOperation = StencilOp.Replace }; // This default state is compatible with deferred renderer.
+        [SerializeField] bool m_RenderForwardGBuffer = false;
         [SerializeField] bool m_ShadowTransparentReceive = true;
         [SerializeField] RenderingMode m_RenderingMode = RenderingMode.Forward;
         [SerializeField] DepthPrimingMode m_DepthPrimingMode = DepthPrimingMode.Disabled; // Default disabled because there are some outstanding issues with Text Mesh rendering.
@@ -219,6 +220,19 @@ namespace UnityEngine.Rendering.Universal
             }
         }
 
+        /// <summary>
+        /// True if transparent objects receive shadows.
+        /// </summary>
+        public bool renderForwardGBuffer
+        {
+            get => m_RenderForwardGBuffer;
+            set
+            {
+                SetDirty();
+                m_RenderForwardGBuffer = value;
+            }
+        }
+        
         /// <summary>
         /// True if transparent objects receive shadows.
         /// </summary>
