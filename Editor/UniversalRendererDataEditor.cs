@@ -119,12 +119,15 @@ namespace UnityEditor.Rendering.Universal
             EditorGUILayout.PropertyField(m_UseNativeRenderPass, Styles.RenderPassLabel);
             EditorGUI.indentLevel--;
             EditorGUILayout.Space();
-            
-            EditorGUILayout.LabelField(Styles.RenderForwardGBuffer, EditorStyles.boldLabel);
-            EditorGUI.indentLevel++;
-            EditorGUILayout.PropertyField(m_RenderForwardGBufferProp, Styles.renderForwardGBuffer);
-            EditorGUI.indentLevel--;
-            EditorGUILayout.Space();
+
+            if (m_RenderingMode.intValue == (int)RenderingMode.Forward || m_RenderingMode.intValue == (int)RenderingMode.ForwardPlus)
+            {
+                EditorGUILayout.LabelField(Styles.RenderForwardGBuffer, EditorStyles.boldLabel); 
+                EditorGUI.indentLevel++;
+                EditorGUILayout.PropertyField(m_RenderForwardGBufferProp, Styles.renderForwardGBuffer);
+                EditorGUI.indentLevel--;
+                EditorGUILayout.Space();
+            }
             
             EditorGUILayout.LabelField(Styles.ShadowsSectionLabel, EditorStyles.boldLabel);
             EditorGUI.indentLevel++;
