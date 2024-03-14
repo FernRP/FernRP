@@ -275,6 +275,7 @@ Shader "Universal Render Pipeline/Lit"
             #pragma multi_compile_fragment _ _SHADOWS_SOFT
             #pragma multi_compile_fragment _ _DBUFFER_MRT1 _DBUFFER_MRT2 _DBUFFER_MRT3
             #pragma multi_compile_fragment _ _RENDER_PASS_ENABLED
+            #pragma multi_compile_fragment _ _RSMBUFFERRENDER // RSM Need ViewPostion
             #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/RenderingLayers.hlsl"
 
             // -------------------------------------

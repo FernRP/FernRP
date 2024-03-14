@@ -6,7 +6,6 @@ namespace UnityEngine.Rendering.Universal.Internal
 {
     public class RSMBufferPass : ScriptableRenderPass
     {
-        static readonly int s_CameraNormalsTextureID = Shader.PropertyToID("_CameraNormalsTexture");
         static ShaderTagId s_ShaderTagLit = new ShaderTagId("Lit");
         static ShaderTagId s_ShaderTagSimpleLit = new ShaderTagId("SimpleLit");
         static ShaderTagId s_ShaderTagUnlit = new ShaderTagId("Unlit");
@@ -15,8 +14,14 @@ namespace UnityEngine.Rendering.Universal.Internal
         
         ProfilingSampler m_ProfilingSampler = new ProfilingSampler("Render RSMBuffer");
         
+        const GraphicsFormat k_DepthStencilFormat = GraphicsFormat.D32_SFloat_S8_UInt;
+        const int k_DepthBufferBits = 32;
+
         private RSMVolume m_VolumeComponent;
         
+        private RTHandle DepthAttachment { get; set; }
+        private RTHandle depthAttachmentRTHandle;
+
         internal RTHandle[] RSMbufferAttachments { get; set; }
         internal RTHandle[] RSMInputAttachments { get; set; }
         private RTHandle[] RSMbufferRTHandles;
@@ -24,35 +29,15 @@ namespace UnityEngine.Rendering.Universal.Internal
         
         internal GraphicsFormat[] RSMbufferFormats { get; set; }
         
-        internal static readonly string[] k_GBufferNames = new string[]
+        internal static readonly string[] k_GBufferNames = new string[] 
         {
-            "_RSMBuffer0",
-            "_RSMBuffer1",
-            "_RSMBuffer2"
+            "_RSMBufferViewPos",
         };
         
-        internal bool UseRenderPass { get; set; }
-        
-        // Color buffer count (not including dephStencil).
-        internal int RSMBufferSliceCount { get { return 2 + (UseRenderPass ? 1 : 0); } }
+        // TODO: More than one RT may be required
+        internal int RSMBufferSliceCount { get { return 1; } }
 
-        
-        // Not all platforms support R8G8B8A8_SNorm, so we need to check for the support and force accurate GBuffer normals and relevant shader variants
-        private bool m_AccurateGbufferNormals;
-        internal bool AccurateGbufferNormals
-        {
-            get { return m_AccurateGbufferNormals; }
-            set { m_AccurateGbufferNormals = value || !RenderingUtils.SupportsGraphicsFormat(GraphicsFormat.R8G8B8A8_SNorm, FormatUsage.Render); }
-        }
-        
-        internal int RSMBufferNormalIndex { get { return 0; } }
-        internal int RSMBufferViewPositionIndex { get { return 1; } }
-        
-        internal bool UseLightLayers { get { return UniversalRenderPipeline.asset.useRenderingLayers; } }
-        
-        internal bool UseDecalLayers { get; set; }
-        
-        internal bool UseRenderingLayers { get { return UseLightLayers || UseDecalLayers; } }
+        internal int RSMBufferViewPositionIndex { get { return 0; } }
         
         static ShaderTagId[] s_ShaderTagValues;
         static RenderStateBlock[] s_RenderStateBlocks;
@@ -95,9 +80,7 @@ namespace UnityEngine.Rendering.Universal.Internal
 
         internal GraphicsFormat GetGBufferFormat(int index)
         {
-            if (index == RSMBufferNormalIndex)
-                return this.AccurateGbufferNormals ? GraphicsFormat.R8G8B8A8_UNorm : GraphicsFormat.R8G8B8A8_SNorm; // normal normal normal packedSmoothness
-            else if (index == RSMBufferViewPositionIndex) // Optional: shadow mask is outputed in mixed lighting subtractive mode for non-static meshes only
+            if (index == RSMBufferViewPositionIndex) // Optional: shadow mask is outputed in mixed lighting subtractive mode for non-static meshes only
                 return GraphicsFormat.B8G8R8A8_UNorm;
             else
                 return GraphicsFormat.None;
@@ -105,7 +88,30 @@ namespace UnityEngine.Rendering.Universal.Internal
 
         public override void Configure(CommandBuffer cmd, RenderTextureDescriptor cameraTextureDescriptor)
         {
+            var stack = VolumeManager.instance.stack;
+            m_VolumeComponent = stack.GetComponent<RSMVolume>();
+            if(!m_VolumeComponent.IsActive()) return;
+            
             CreateGbufferResources();
+
+            // Depth
+            var depthDescriptor = cameraTextureDescriptor;
+            if (!RenderingUtils.SupportsGraphicsFormat(GraphicsFormat.R32_SFloat, FormatUsage.Render))
+            {
+                depthDescriptor.graphicsFormat = GraphicsFormat.None;
+                depthDescriptor.depthStencilFormat = k_DepthStencilFormat;
+                depthDescriptor.depthBufferBits = k_DepthBufferBits;
+            }
+            else
+            {
+                depthDescriptor.graphicsFormat = GraphicsFormat.R32_SFloat;
+                depthDescriptor.depthStencilFormat = GraphicsFormat.None;
+                depthDescriptor.depthBufferBits = 0;
+            }
+
+            depthDescriptor.msaaSamples = 1;// Depth-Only pass don't use MSAA
+            RenderingUtils.ReAllocateIfNeeded(ref depthAttachmentRTHandle, depthDescriptor, FilterMode.Point, wrapMode: TextureWrapMode.Clamp, name: "_RSMDepthTexture");
+            this.DepthAttachment = depthAttachmentRTHandle;
             
             RTHandle[] gbufferAttachments = RSMbufferAttachments;
             
@@ -114,20 +120,13 @@ namespace UnityEngine.Rendering.Universal.Internal
                 // Create and declare the render targets used in the pass
                 for (int i = 0; i < gbufferAttachments.Length; ++i)
                 {
-                    // No need to setup temporaryRTs if we are using input attachments as they will be Memoryless
-                    if (UseRenderPass)
-                        continue;
-                    
                     ReAllocateGBufferIfNeeded(cameraTextureDescriptor, i);
                     
                     cmd.SetGlobalTexture(RSMbufferAttachments[i].name, RSMbufferAttachments[i].nameID);
                 }
             }
             
-            if (UseRenderPass)
-                UpdateRSMInputAttachments();
-            
-            ConfigureTarget(RSMbufferAttachments, depthAttachmentHandle, RSMbufferFormats);
+            ConfigureTarget(RSMbufferRTHandles, DepthAttachment, RSMbufferFormats);
             
             // We must explicitly specify we don't want any clear to avoid unwanted side-effects.
             // ScriptableRenderer will implicitly force a clear the first time the camera color/depth targets are bound.
@@ -187,14 +186,13 @@ namespace UnityEngine.Rendering.Universal.Internal
             if (this.RSMbufferRTHandles != null)
             {
                 // In case DeferredLight does not own the RTHandle, we can skip realloc.
-                if (this.RSMbufferRTHandles[gbufferIndex].GetInstanceID() != this.RSMbufferRTHandles[gbufferIndex].GetInstanceID())
+                if (this.RSMbufferRTHandles[gbufferIndex].GetInstanceID() != this.RSMbufferAttachments[gbufferIndex].GetInstanceID())
                     return;
-
                 gbufferSlice.depthBufferBits = 0; // make sure no depth surface is actually created
                 gbufferSlice.stencilFormat = GraphicsFormat.None;
                 gbufferSlice.graphicsFormat = this.GetGBufferFormat(gbufferIndex);
-                RenderingUtils.ReAllocateIfNeeded(ref this.RSMbufferRTHandles[gbufferIndex], gbufferSlice, FilterMode.Point, TextureWrapMode.Clamp, name: DeferredLights.k_GBufferNames[gbufferIndex]);
-                this.RSMbufferRTHandles[gbufferIndex] = this.RSMbufferRTHandles[gbufferIndex];
+                RenderingUtils.ReAllocateIfNeeded(ref this.RSMbufferRTHandles[gbufferIndex], gbufferSlice, FilterMode.Point, TextureWrapMode.Clamp, name: k_GBufferNames[gbufferIndex]);
+                this.RSMbufferAttachments[gbufferIndex] = this.RSMbufferRTHandles[gbufferIndex];
             }
         }
         
@@ -216,13 +214,6 @@ namespace UnityEngine.Rendering.Universal.Internal
                     this.RSMbufferFormats[i] = this.GetGBufferFormat(i);
                 }
             }
-        }
-        
-        internal void UpdateRSMInputAttachments()
-        {
-            this.RSMInputAttachments[0] = this.RSMbufferAttachments[0];
-            this.RSMInputAttachments[1] = this.RSMbufferAttachments[1];
-            this.RSMInputAttachments[2] = this.RSMbufferAttachments[2];
         }
         
         internal void ReleaseGbufferResources()

@@ -257,6 +257,8 @@ namespace UnityEngine.Rendering.Universal
                 m_DeferredLights = new DeferredLights(deferredInitParams, useRenderPassEnabled);
                 m_DeferredLights.AccurateGbufferNormals = data.accurateGbufferNormals;
 
+                m_RSMBufferPass = new RSMBufferPass(RenderPassEvent.BeforeRenderingGbuffer - 1, RenderQueueRange.opaque, data.opaqueLayerMask, m_DefaultStencilState, stencilData.stencilReference);
+                
                 m_GBufferPass = new GBufferPass(RenderPassEvent.BeforeRenderingGbuffer, RenderQueueRange.opaque, data.opaqueLayerMask, m_DefaultStencilState, stencilData.stencilReference, m_DeferredLights);
                 // Forward-only pass only runs if deferred renderer is enabled.
                 // It allows specific materials to be rendered in a forward-like pass.
@@ -276,8 +278,6 @@ namespace UnityEngine.Rendering.Universal
                 int forwardOnlyStencilRef = stencilData.stencilReference | (int)StencilUsage.MaterialUnlit;
                 m_GBufferCopyDepthPass = new CopyDepthPass(RenderPassEvent.BeforeRenderingGbuffer + 1, m_CopyDepthMaterial, true);
                 
-                // TODO: RSM GBuffer
-                m_RSMBufferPass = new RSMBufferPass(RenderPassEvent.AfterRenderingGbuffer, RenderQueueRange.opaque, data.opaqueLayerMask, m_DefaultStencilState, stencilData.stencilReference);
                 
                 m_DeferredPass = new DeferredPass(RenderPassEvent.BeforeRenderingDeferredLights, m_DeferredLights);
                 m_RenderOpaqueForwardOnlyPass = new DrawObjectsPass("Render Opaques Forward Only", forwardOnlyShaderTagIds, true, RenderPassEvent.BeforeRenderingOpaques, RenderQueueRange.opaque, data.opaqueLayerMask, forwardOnlyStencilState, forwardOnlyStencilRef);
@@ -1341,6 +1341,8 @@ namespace UnityEngine.Rendering.Universal
                 m_DeferredPass.Configure(null, renderingData.cameraData.cameraTargetDescriptor);
             }
 
+            EnqueuePass(m_RSMBufferPass);
+            
             EnqueuePass(m_GBufferPass);
 
             //Must copy depth for deferred shading: TODO wait for API fix to bind depth texture as read-only resource.
@@ -1349,8 +1351,6 @@ namespace UnityEngine.Rendering.Universal
                 m_GBufferCopyDepthPass.Setup(m_CameraDepthAttachment, m_DepthTexture);
                 EnqueuePass(m_GBufferCopyDepthPass);
             }
-            
-            EnqueuePass(m_RSMBufferPass);
 
             EnqueuePass(m_DeferredPass);
 
