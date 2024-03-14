@@ -222,6 +222,17 @@ FragmentOutput BRDFDataToGbuffer(BRDFData brdfData, InputData inputData, half sm
     return output;
 }
 
+// This will encode SurfaceData into RSMBuffer
+FragmentOutput BRDFDataToRSMbuffer(BRDFData brdfData, InputData inputData, half smoothness, half3 globalIllumination, half occlusion = 1.0)
+{
+    FragmentOutput output;
+
+    half3 packedNormalWS = PackNormal(inputData.normalWS);
+    
+    output.GBuffer0 = half4(packedNormalWS, smoothness);;
+    return output;
+}
+
 // This decodes the Gbuffer into a SurfaceData struct
 BRDFData BRDFDataFromGbuffer(half4 gbuffer0, half4 gbuffer1, half4 gbuffer2)
 {

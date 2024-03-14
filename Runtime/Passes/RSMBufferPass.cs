@@ -11,6 +11,8 @@ namespace UnityEngine.Rendering.Universal.Internal
         static ShaderTagId s_ShaderTagUnlit = new ShaderTagId("Unlit");
         static ShaderTagId s_ShaderTagUniversalGBuffer = new ShaderTagId("UniversalGBuffer");
         static ShaderTagId s_ShaderTagUniversalMaterialType = new ShaderTagId("UniversalMaterialType");
+
+        private const string RSMBUFFERRENDER = "_RSMBUFFERRENDER";
         
         ProfilingSampler m_ProfilingSampler = new ProfilingSampler("Render RSMBuffer");
         
@@ -106,7 +108,7 @@ namespace UnityEngine.Rendering.Universal.Internal
             {
                 depthDescriptor.graphicsFormat = GraphicsFormat.R32_SFloat;
                 depthDescriptor.depthStencilFormat = GraphicsFormat.None;
-                depthDescriptor.depthBufferBits = 0;
+                depthDescriptor.depthBufferBits = k_DepthBufferBits;
             }
 
             depthDescriptor.msaaSamples = 1;// Depth-Only pass don't use MSAA
@@ -155,11 +157,14 @@ namespace UnityEngine.Rendering.Universal.Internal
             m_PassData.filteringSettings = m_FilteringSettings;
             using (new ProfilingScope(cmd, m_ProfilingSampler))
             {
+                cmd.EnableKeyword(GlobalKeyword.Create(RSMBUFFERRENDER));
                 ref CameraData cameraData = ref renderingData.cameraData;
                 ShaderTagId lightModeTag = s_ShaderTagUniversalGBuffer;
                 m_PassData.drawingSettings = CreateDrawingSettings(lightModeTag, ref renderingData, renderingData.cameraData.defaultOpaqueSortFlags);
                 
                 ExecutePass(context, m_PassData, ref renderingData);
+                
+                cmd.DisableKeyword(GlobalKeyword.Create(RSMBUFFERRENDER));
             }
         }
 
