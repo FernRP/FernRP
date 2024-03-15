@@ -33,7 +33,7 @@ namespace UnityEngine.Rendering.Universal.Internal
         
         internal static readonly string[] k_GBufferNames = new string[] 
         {
-            "_RSMBufferViewPos",
+            "_RSMBufferBaseColor",
         };
         
         // TODO: More than one RT may be required
@@ -43,6 +43,8 @@ namespace UnityEngine.Rendering.Universal.Internal
         
         static ShaderTagId[] s_ShaderTagValues;
         static RenderStateBlock[] s_RenderStateBlocks;
+        
+        bool m_CreateEmptyShadowmap;
         
         FilteringSettings m_FilteringSettings;
         RenderStateBlock m_RenderStateBlock;
@@ -83,7 +85,7 @@ namespace UnityEngine.Rendering.Universal.Internal
         internal GraphicsFormat GetGBufferFormat(int index)
         {
             if (index == RSMBufferViewPositionIndex) // Optional: shadow mask is outputed in mixed lighting subtractive mode for non-static meshes only
-                return GraphicsFormat.B8G8R8A8_UNorm;
+                return GraphicsFormat.B8G8R8A8_SRGB;
             else
                 return GraphicsFormat.None;
         }
@@ -111,6 +113,9 @@ namespace UnityEngine.Rendering.Universal.Internal
                 depthDescriptor.depthBufferBits = k_DepthBufferBits;
             }
 
+            depthDescriptor.width = 1024;
+            depthDescriptor.height = 1024;
+
             depthDescriptor.msaaSamples = 1;// Depth-Only pass don't use MSAA
             RenderingUtils.ReAllocateIfNeeded(ref depthAttachmentRTHandle, depthDescriptor, FilterMode.Point, wrapMode: TextureWrapMode.Clamp, name: "_RSMDepthTexture");
             this.DepthAttachment = depthAttachmentRTHandle;
@@ -132,7 +137,7 @@ namespace UnityEngine.Rendering.Universal.Internal
             
             // We must explicitly specify we don't want any clear to avoid unwanted side-effects.
             // ScriptableRenderer will implicitly force a clear the first time the camera color/depth targets are bound.
-            ConfigureClear(ClearFlag.None, Color.black);
+            ConfigureClear(ClearFlag.All, Color.black);
         }
         
         private class PassData
@@ -162,29 +167,59 @@ namespace UnityEngine.Rendering.Universal.Internal
                 ShaderTagId lightModeTag = s_ShaderTagUniversalGBuffer;
                 m_PassData.drawingSettings = CreateDrawingSettings(lightModeTag, ref renderingData, renderingData.cameraData.defaultOpaqueSortFlags);
                 
-                ExecutePass(context, m_PassData, ref renderingData);
+                ExecutePass(context, cmd, m_PassData, ref renderingData);
                 
                 cmd.DisableKeyword(GlobalKeyword.Create(RSMBUFFERRENDER));
             }
         }
 
-        static void ExecutePass(ScriptableRenderContext context, PassData data, ref RenderingData renderingData,
+        static void ExecutePass(ScriptableRenderContext context, CommandBuffer cmd, PassData data, ref RenderingData renderingData,
             bool useRenderGraph = false)
         {
-            context.ExecuteCommandBuffer(renderingData.commandBuffer);
-            renderingData.commandBuffer.Clear();
+            context.ExecuteCommandBuffer(cmd);
+            cmd.Clear();
+            
+            var cullResults = renderingData.cullResults;
+            var lightData = renderingData.lightData;
+            
+            int rsmLightIndex = lightData.mainLightIndex;
+            if (rsmLightIndex == -1)
+                return;
+            
+            VisibleLight rsmLight = lightData.visibleLights[rsmLightIndex];
+            
+            Bounds bounds;
+            if (!renderingData.cullResults.GetShadowCasterBounds(rsmLightIndex, out bounds))
+                return;
+            
+            // TODO: splitIndex 0 for now
+            Matrix4x4 viewMatrix;
+            Matrix4x4 projectionMatrix;
+            ShadowSplitData splitData;
+            bool success = cullResults.ComputeDirectionalShadowMatricesAndCullingPrimitives(rsmLightIndex,
+                0, 1, Vector3.right, 1024, rsmLight.light.shadowNearPlane, out viewMatrix, out projectionMatrix,
+                out splitData);
+            
+            cmd.SetViewProjectionMatrices(viewMatrix, projectionMatrix);
+            context.ExecuteCommandBuffer(cmd);
+            cmd.Clear();
 
             NativeArray<ShaderTagId> tagValues = new NativeArray<ShaderTagId>(s_ShaderTagValues, Allocator.Temp);
             NativeArray<RenderStateBlock> stateBlocks = new NativeArray<RenderStateBlock>(s_RenderStateBlocks, Allocator.Temp);
             
             context.DrawRenderers(renderingData.cullResults, ref data.drawingSettings, ref data.filteringSettings, s_ShaderTagUniversalMaterialType, false, tagValues, stateBlocks);
 
+            cmd.SetViewProjectionMatrices(renderingData.cameraData.GetViewMatrix(), renderingData.cameraData.GetProjectionMatrix());
+            
+            context.ExecuteCommandBuffer(cmd);
+            cmd.Clear();
+            
             tagValues.Dispose();
             stateBlocks.Dispose();
             
             // Render objects that did not match any shader pass with error shader
             RenderingUtils.RenderObjectsWithError(context, ref renderingData.cullResults, renderingData.cameraData.camera, data.filteringSettings, SortingCriteria.None);
-    }
+        }
         
         internal void ReAllocateGBufferIfNeeded(RenderTextureDescriptor gbufferSlice, int gbufferIndex)
         {
@@ -196,6 +231,8 @@ namespace UnityEngine.Rendering.Universal.Internal
                 gbufferSlice.depthBufferBits = 0; // make sure no depth surface is actually created
                 gbufferSlice.stencilFormat = GraphicsFormat.None;
                 gbufferSlice.graphicsFormat = this.GetGBufferFormat(gbufferIndex);
+                gbufferSlice.width = 1024;
+                gbufferSlice.height = 1024;
                 RenderingUtils.ReAllocateIfNeeded(ref this.RSMbufferRTHandles[gbufferIndex], gbufferSlice, FilterMode.Point, TextureWrapMode.Clamp, name: k_GBufferNames[gbufferIndex]);
                 this.RSMbufferAttachments[gbufferIndex] = this.RSMbufferRTHandles[gbufferIndex];
             }

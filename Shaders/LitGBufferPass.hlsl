@@ -220,7 +220,7 @@ FragmentOutput LitGBufferPassFragment(Varyings input)
     half3 color = GlobalIllumination(brdfData, inputData.bakedGI, surfaceData.occlusion, inputData.positionWS, inputData.normalWS, inputData.viewDirectionWS);
 
     #if _RSMBUFFERRENDER
-    return BRDFDataToRSMbuffer(brdfData, inputData, surfaceData.smoothness, surfaceData.emission + color, surfaceData.occlusion);
+    return BRDFDataToRSMbuffer(brdfData, inputData, mainLight.color, surfaceData.smoothness, surfaceData.emission + color, surfaceData.occlusion);
     #else
     return BRDFDataToGbuffer(brdfData, inputData, surfaceData.smoothness, surfaceData.emission + color, surfaceData.occlusion);
     #endif
