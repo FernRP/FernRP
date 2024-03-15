@@ -33,7 +33,7 @@ namespace UnityEngine.Rendering.Universal.Internal
         
         internal static readonly string[] k_GBufferNames = new string[] 
         {
-            "_RSMBufferBaseColor",
+            "_RSMBufferFlux",
         };
         
         // TODO: More than one RT may be required
