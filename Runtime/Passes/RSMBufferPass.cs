@@ -33,13 +33,15 @@ namespace UnityEngine.Rendering.Universal.Internal
         
         internal static readonly string[] k_GBufferNames = new string[] 
         {
-            "_RSMBufferFlux",
+            "_RSMFluxBuffer",
+            "_RSMNormalBuffer",
         };
         
         // TODO: More than one RT may be required
-        internal int RSMBufferSliceCount { get { return 1; } }
+        internal int RSMBufferSliceCount { get { return 2; } }
 
-        internal int RSMBufferViewPositionIndex { get { return 0; } }
+        internal int RSMFluxBufferIndex { get { return 0; } }
+        internal int RSMNormalBufferIndex { get { return 1; } }
         
         static ShaderTagId[] s_ShaderTagValues;
         static RenderStateBlock[] s_RenderStateBlocks;
@@ -84,8 +86,10 @@ namespace UnityEngine.Rendering.Universal.Internal
 
         internal GraphicsFormat GetGBufferFormat(int index)
         {
-            if (index == RSMBufferViewPositionIndex) // Optional: shadow mask is outputed in mixed lighting subtractive mode for non-static meshes only
+            if (index == RSMFluxBufferIndex) // Optional: shadow mask is outputed in mixed lighting subtractive mode for non-static meshes only
                 return GraphicsFormat.B8G8R8A8_SRGB;
+            else if (index == RSMNormalBufferIndex) // Optional: shadow mask is outputed in mixed lighting subtractive mode for non-static meshes only
+                return GraphicsFormat.R8G8B8A8_UNorm;
             else
                 return GraphicsFormat.None;
         }
@@ -132,6 +136,7 @@ namespace UnityEngine.Rendering.Universal.Internal
                     cmd.SetGlobalTexture(RSMbufferAttachments[i].name, RSMbufferAttachments[i].nameID);
                 }
             }
+            cmd.SetGlobalTexture(depthAttachmentRTHandle.name, depthAttachmentRTHandle.nameID);
             
             ConfigureTarget(RSMbufferRTHandles, DepthAttachment, RSMbufferFormats);
             
@@ -172,8 +177,8 @@ namespace UnityEngine.Rendering.Universal.Internal
                 cmd.DisableKeyword(GlobalKeyword.Create(RSMBUFFERRENDER));
             }
         }
-
-        static void ExecutePass(ScriptableRenderContext context, CommandBuffer cmd, PassData data, ref RenderingData renderingData,
+        
+        private void ExecutePass(ScriptableRenderContext context, CommandBuffer cmd, PassData data, ref RenderingData renderingData,
             bool useRenderGraph = false)
         {
             context.ExecuteCommandBuffer(cmd);
@@ -187,18 +192,20 @@ namespace UnityEngine.Rendering.Universal.Internal
                 return;
             
             VisibleLight rsmLight = lightData.visibleLights[rsmLightIndex];
+            renderingData.cameraData.maxShadowDistance = m_VolumeComponent.maxDistance.value;
             
             Bounds bounds;
             if (!renderingData.cullResults.GetShadowCasterBounds(rsmLightIndex, out bounds))
                 return;
             
-            // TODO: splitIndex 0 for now
+            // TODO: splitIndex 0 for now, I Want to generate rsm buffer with shadowcaster
             Matrix4x4 viewMatrix;
             Matrix4x4 projectionMatrix;
             ShadowSplitData splitData;
             bool success = cullResults.ComputeDirectionalShadowMatricesAndCullingPrimitives(rsmLightIndex,
                 0, 1, Vector3.right, 1024, rsmLight.light.shadowNearPlane, out viewMatrix, out projectionMatrix,
                 out splitData);
+            
             
             cmd.SetViewProjectionMatrices(viewMatrix, projectionMatrix);
             context.ExecuteCommandBuffer(cmd);
@@ -210,7 +217,12 @@ namespace UnityEngine.Rendering.Universal.Internal
             context.DrawRenderers(renderingData.cullResults, ref data.drawingSettings, ref data.filteringSettings, s_ShaderTagUniversalMaterialType, false, tagValues, stateBlocks);
 
             cmd.SetViewProjectionMatrices(renderingData.cameraData.GetViewMatrix(), renderingData.cameraData.GetProjectionMatrix());
-            
+            cmd.SetGlobalFloat("_RSMSampleCount", m_VolumeComponent.RSMSampleCount.value);
+            cmd.SetGlobalFloat("_RSMIntensity", m_VolumeComponent.RSMIntensity.value);
+            Matrix4x4 VPMatrix = projectionMatrix * viewMatrix;
+            VPMatrix.SetRow(1, -VPMatrix.GetRow(1));
+            cmd.SetGlobalMatrix("inverseLightViewProjectionMatrix", VPMatrix.inverse);
+
             context.ExecuteCommandBuffer(cmd);
             cmd.Clear();
             

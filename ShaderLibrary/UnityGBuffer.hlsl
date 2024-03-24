@@ -227,7 +227,11 @@ FragmentOutput BRDFDataToRSMbuffer(BRDFData brdfData, InputData inputData, float
 {
     FragmentOutput output;
 
+    half3 packedNormalWS = PackNormal(inputData.normalWS);
+
     output.GBuffer0 = half4(brdfData.albedo.rgb * lightColor, 1); // Flux
+    output.GBuffer1 = half4(inputData.normalWS * 0.5 + 0.5, smoothness);          // Normal
+    
     return output;
 }
 

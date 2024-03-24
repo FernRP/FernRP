@@ -6,6 +6,9 @@ namespace UnityEngine.Rendering.Universal
     public class RSMVolume: VolumeComponent, IPostProcessComponent
     {
         public BoolParameter isEnable = new BoolParameter(false);
+        public FloatParameter maxDistance = new FloatParameter(10);
+        public FloatParameter RSMSampleCount = new FloatParameter(32);
+        public FloatParameter RSMIntensity = new FloatParameter(1);
 
         public bool IsActive() => isEnable.value;
 
