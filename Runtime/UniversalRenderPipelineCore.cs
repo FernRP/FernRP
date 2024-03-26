@@ -1236,6 +1236,9 @@ namespace UnityEngine.Rendering.Universal
 
         /// <summary> Keyword used for Drawing procedurally.</summary>
         public const string UseDrawProcedural = "_USE_DRAW_PROCEDURAL";
+        
+        //=================== FernRP Add ===================//
+        public const string RSM = "_RSM";
     }
 
     public sealed partial class UniversalRenderPipeline

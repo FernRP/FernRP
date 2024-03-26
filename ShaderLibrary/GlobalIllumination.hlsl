@@ -457,4 +457,56 @@ void MixRealtimeAndBakedGI(inout Light light, half3 normalWS, inout half3 bakedG
     MixRealtimeAndBakedGI(light, normalWS, bakedGI);
 }
 
+// FernRP
+
+TEXTURE2D(_RSMFluxBuffer); SAMPLER(sampler_RSMFluxBuffer);
+TEXTURE2D(_RSMNormalBuffer);
+TEXTURE2D(_RSMDepthTexture); SAMPLER(sampler_RSMDepthTexture);
+
+float4x4 inverseLightViewProjectionMatrix;
+float _RSMSampleCount;
+float _RSMIntensity;
+
+float RadicalInverse_VdC(uint bits)
+{
+    bits = (bits << 16u) | (bits >> 16u);
+    bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
+    bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
+    bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
+    bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
+    return float(bits) * 2.3283064365386963e-10; // / 0x100000000
+}
+
+float3 SampleRSM(float4 positionWS ,half3 normal) {
+
+    float3 worldPos = positionWS;
+    float4 shadowCoord = TransformWorldToShadowCoord(worldPos.xyz);
+    float3 diffuse = 0.0f;
+    float sampleScale = 256.0f / _RSMSampleCount;
+
+    [unroll(_RSMSampleCount)];
+    for (int i = 0; i < _RSMSampleCount; i++) {
+        float random1 = i / _RSMSampleCount;
+        float random2 = RadicalInverse_VdC(i * sampleScale);
+        float2 random = float2(random1, random2) * 2.0f - 1.0f;
+        random = Pow4(random * random);
+        float2 maxSclae = float2(min(shadowCoord.x, 1 - shadowCoord.x), min(shadowCoord.y, 1 - shadowCoord.y));
+        float2 VPLSamplePos = shadowCoord + float2(maxSclae.x * random.x * sin(2 * PI * random.y), maxSclae.y * random.y * cos(2 * PI * random.x));
+
+        float4 rsmColorAndDepth = SAMPLE_TEXTURE2D(_RSMFluxBuffer, sampler_RSMFluxBuffer, VPLSamplePos);
+        float3 rsmColor = rsmColorAndDepth.xyz;
+        float rsmDepth = SAMPLE_TEXTURE2D(_RSMDepthTexture, sampler_RSMDepthTexture, VPLSamplePos);
+        float3 rsmNormal = SAMPLE_TEXTURE2D(_RSMNormalBuffer, sampler_RSMFluxBuffer, VPLSamplePos);
+        rsmNormal = rsmNormal * 2.0f - 1.0f;
+        float3 rsmWorldPos = ComputeWorldSpacePosition(VPLSamplePos, rsmDepth, inverseLightViewProjectionMatrix);
+        float3 rsmDir = rsmWorldPos - worldPos;
+        float distance = max(1 + length(rsmDir), 0.01f);
+        float3 rsmDiffuse = rsmColor * saturate(dot(rsmNormal, -rsmDir)) * saturate(dot(normal, rsmDir));
+        rsmDiffuse /= distance * distance;
+        diffuse += rsmDiffuse * abs(random.x * random.y) * _RSMIntensity;
+    }
+    return diffuse;
+
+}
+
 #endif

@@ -288,9 +288,9 @@ Shader "Hidden/Universal Render Pipeline/StencilDeferred"
         #endif
 
         #if defined(USING_STEREO_MATRICES)
-        int eyeIndex = unity_StereoEyeIndex;
+            int eyeIndex = unity_StereoEyeIndex;
         #else
-        int eyeIndex = 0;
+            int eyeIndex = 0;
         #endif
         float4 posWS = mul(_ScreenToWorld[eyeIndex], float4(input.positionCS.xy, d, 1.0));
         posWS.xyz *= rcp(posWS.w);
@@ -318,6 +318,7 @@ Shader "Hidden/Universal Render Pipeline/StencilDeferred"
 
         InputData inputData = InputDataFromGbufferAndWorldPosition(gbuffer2, posWS.xyz);
 
+
         #if defined(_LIT)
             #if SHADER_API_MOBILE || SHADER_API_SWITCH
             // Specular highlights are still silenced by setting specular to 0.0 during gbuffer pass and GPU timing is still reduced.
@@ -327,6 +328,13 @@ Shader "Hidden/Universal Render Pipeline/StencilDeferred"
             #endif
             BRDFData brdfData = BRDFDataFromGbuffer(gbuffer0, gbuffer1, gbuffer2);
             color = LightingPhysicallyBased(brdfData, unityLight, inputData.normalWS, inputData.viewDirectionWS, materialSpecularHighlightsOff);
+
+            #if _RSM
+                float3 rsm = SampleRSM(posWS, inputData.normalWS);
+                color += brdfData.diffuse * rsm;
+            #endif
+            
+
         #elif defined(_SIMPLELIT)
             SurfaceData surfaceData = SurfaceDataFromGbuffer(gbuffer0, gbuffer1, gbuffer2, kLightingSimpleLit);
             half3 attenuatedLightColor = unityLight.color * (unityLight.distanceAttenuation * unityLight.shadowAttenuation);
@@ -338,7 +346,8 @@ Shader "Hidden/Universal Render Pipeline/StencilDeferred"
             color = diffuseColor * surfaceData.albedo + specularColor;
         #endif
 
-        return half4(color, alpha);
+
+        return half4(color, alpha); 
     }
 
     half4 FragFog(Varyings input) : SV_Target
@@ -457,6 +466,10 @@ Shader "Hidden/Universal Render Pipeline/StencilDeferred"
             #pragma multi_compile_fragment _ _RENDER_PASS_ENABLED
             #pragma multi_compile_fragment _ _LIGHT_COOKIES
             #pragma multi_compile_fragment _ _FOVEATED_RENDERING_NON_UNIFORM_RASTER
+
+            // FernRP Keyword
+            #pragma multi_compile_fragment _ _RSM
+            
             // Foveated rendering currently not supported in dxc on metal
             #pragma never_use_dxc metal
 
@@ -559,6 +572,10 @@ Shader "Hidden/Universal Render Pipeline/StencilDeferred"
             #pragma multi_compile_fragment _ _RENDER_PASS_ENABLED
             #pragma multi_compile_fragment _ _LIGHT_COOKIES
             #pragma multi_compile_fragment _ _FOVEATED_RENDERING_NON_UNIFORM_RASTER
+
+            // FernRP Keyword
+            #pragma multi_compile_fragment _ _RSM
+            
             // Foveated rendering currently not supported in dxc on metal
             #pragma never_use_dxc metal
 

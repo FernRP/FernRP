@@ -1,4 +1,5 @@
-﻿using Unity.Collections;
+﻿using System.Collections.Generic;
+using Unity.Collections;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Experimental.Rendering.RenderGraphModule;
 
@@ -20,7 +21,7 @@ namespace UnityEngine.Rendering.Universal.Internal
         const int k_DepthBufferBits = 32;
 
         private RSMVolume m_VolumeComponent;
-        
+
         private RTHandle DepthAttachment { get; set; }
         private RTHandle depthAttachmentRTHandle;
 
@@ -117,8 +118,8 @@ namespace UnityEngine.Rendering.Universal.Internal
                 depthDescriptor.depthBufferBits = k_DepthBufferBits;
             }
 
-            depthDescriptor.width = 1024;
-            depthDescriptor.height = 1024;
+            depthDescriptor.width = 256;
+            depthDescriptor.height = 256;
 
             depthDescriptor.msaaSamples = 1;// Depth-Only pass don't use MSAA
             RenderingUtils.ReAllocateIfNeeded(ref depthAttachmentRTHandle, depthDescriptor, FilterMode.Point, wrapMode: TextureWrapMode.Clamp, name: "_RSMDepthTexture");
@@ -159,15 +160,20 @@ namespace UnityEngine.Rendering.Universal.Internal
         
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
         {
+            var cmd = renderingData.commandBuffer;
             var stack = VolumeManager.instance.stack;
             m_VolumeComponent = stack.GetComponent<RSMVolume>();
-            if(!m_VolumeComponent.IsActive()) return;
+            if (!m_VolumeComponent.IsActive())
+            {
+                CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.RSM, false);
+                return;
+            }
             
-            var cmd = renderingData.commandBuffer;
             m_PassData.filteringSettings = m_FilteringSettings;
             using (new ProfilingScope(cmd, m_ProfilingSampler))
             {
                 cmd.EnableKeyword(GlobalKeyword.Create(RSMBUFFERRENDER));
+                CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.RSM, true);
                 ref CameraData cameraData = ref renderingData.cameraData;
                 ShaderTagId lightModeTag = s_ShaderTagUniversalGBuffer;
                 m_PassData.drawingSettings = CreateDrawingSettings(lightModeTag, ref renderingData, renderingData.cameraData.defaultOpaqueSortFlags);
@@ -203,7 +209,7 @@ namespace UnityEngine.Rendering.Universal.Internal
             Matrix4x4 projectionMatrix;
             ShadowSplitData splitData;
             bool success = cullResults.ComputeDirectionalShadowMatricesAndCullingPrimitives(rsmLightIndex,
-                0, 1, Vector3.right, 1024, rsmLight.light.shadowNearPlane, out viewMatrix, out projectionMatrix,
+                0, 1, Vector3.right, 256, rsmLight.light.shadowNearPlane, out viewMatrix, out projectionMatrix,
                 out splitData);
             
             
@@ -243,8 +249,8 @@ namespace UnityEngine.Rendering.Universal.Internal
                 gbufferSlice.depthBufferBits = 0; // make sure no depth surface is actually created
                 gbufferSlice.stencilFormat = GraphicsFormat.None;
                 gbufferSlice.graphicsFormat = this.GetGBufferFormat(gbufferIndex);
-                gbufferSlice.width = 1024;
-                gbufferSlice.height = 1024;
+                gbufferSlice.width = 256;
+                gbufferSlice.height = 256;
                 RenderingUtils.ReAllocateIfNeeded(ref this.RSMbufferRTHandles[gbufferIndex], gbufferSlice, FilterMode.Point, TextureWrapMode.Clamp, name: k_GBufferNames[gbufferIndex]);
                 this.RSMbufferAttachments[gbufferIndex] = this.RSMbufferRTHandles[gbufferIndex];
             }
