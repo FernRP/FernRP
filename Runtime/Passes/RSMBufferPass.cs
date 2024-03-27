@@ -95,16 +95,23 @@ namespace UnityEngine.Rendering.Universal.Internal
                 return GraphicsFormat.None;
         }
 
-        public override void Configure(CommandBuffer cmd, RenderTextureDescriptor cameraTextureDescriptor)
+        internal bool Setup(ref RenderingData renderingData)
         {
+            if (!renderingData.shadowData.mainLightShadowsEnabled)
+                return false;
+
+            if (!renderingData.shadowData.supportsMainLightShadows)
+                return false;
+            
             var stack = VolumeManager.instance.stack;
             m_VolumeComponent = stack.GetComponent<RSMVolume>();
-            if(!m_VolumeComponent.IsActive()) return;
+            if(!m_VolumeComponent.IsActive()) return false;
             
             CreateGbufferResources();
+            
 
             // Depth
-            var depthDescriptor = cameraTextureDescriptor;
+            var depthDescriptor = renderingData.cameraData.cameraTargetDescriptor;
             if (!RenderingUtils.SupportsGraphicsFormat(GraphicsFormat.R32_SFloat, FormatUsage.Render))
             {
                 depthDescriptor.graphicsFormat = GraphicsFormat.None;
@@ -118,8 +125,8 @@ namespace UnityEngine.Rendering.Universal.Internal
                 depthDescriptor.depthBufferBits = k_DepthBufferBits;
             }
 
-            depthDescriptor.width = 256;
-            depthDescriptor.height = 256;
+            depthDescriptor.width = renderingData.shadowData.additionalLightsShadowmapWidth;
+            depthDescriptor.height = renderingData.shadowData.additionalLightsShadowmapWidth;
 
             depthDescriptor.msaaSamples = 1;// Depth-Only pass don't use MSAA
             RenderingUtils.ReAllocateIfNeeded(ref depthAttachmentRTHandle, depthDescriptor, FilterMode.Point, wrapMode: TextureWrapMode.Clamp, name: "_RSMDepthTexture");
@@ -127,16 +134,30 @@ namespace UnityEngine.Rendering.Universal.Internal
             
             RTHandle[] gbufferAttachments = RSMbufferAttachments;
             
+            // Create and declare the render targets used in the pass
+            for (int i = 0; i < gbufferAttachments.Length; ++i)
+            {
+                ReAllocateGBufferIfNeeded(renderingData.cameraData.cameraTargetDescriptor, renderingData.shadowData.additionalLightsShadowmapWidth, i);
+            }
+            
+            return true;
+        }
+
+        public override void Configure(CommandBuffer cmd, RenderTextureDescriptor cameraTextureDescriptor)
+        {
+            var stack = VolumeManager.instance.stack;
+            m_VolumeComponent = stack.GetComponent<RSMVolume>();
+            if(!m_VolumeComponent.IsActive()) return;
+            
             if (cmd != null)
             {
                 // Create and declare the render targets used in the pass
-                for (int i = 0; i < gbufferAttachments.Length; ++i)
+                for (int i = 0; i < RSMbufferAttachments.Length; ++i)
                 {
-                    ReAllocateGBufferIfNeeded(cameraTextureDescriptor, i);
-                    
                     cmd.SetGlobalTexture(RSMbufferAttachments[i].name, RSMbufferAttachments[i].nameID);
                 }
             }
+            
             cmd.SetGlobalTexture(depthAttachmentRTHandle.name, depthAttachmentRTHandle.nameID);
             
             ConfigureTarget(RSMbufferRTHandles, DepthAttachment, RSMbufferFormats);
@@ -198,7 +219,6 @@ namespace UnityEngine.Rendering.Universal.Internal
                 return;
             
             VisibleLight rsmLight = lightData.visibleLights[rsmLightIndex];
-            renderingData.cameraData.maxShadowDistance = m_VolumeComponent.maxDistance.value;
             
             Bounds bounds;
             if (!renderingData.cullResults.GetShadowCasterBounds(rsmLightIndex, out bounds))
@@ -209,9 +229,8 @@ namespace UnityEngine.Rendering.Universal.Internal
             Matrix4x4 projectionMatrix;
             ShadowSplitData splitData;
             bool success = cullResults.ComputeDirectionalShadowMatricesAndCullingPrimitives(rsmLightIndex,
-                0, 1, Vector3.right, 256, rsmLight.light.shadowNearPlane, out viewMatrix, out projectionMatrix,
+                0, 1, Vector3.right, renderingData.shadowData.mainLightShadowmapWidth, rsmLight.light.shadowNearPlane, out viewMatrix, out projectionMatrix,
                 out splitData);
-            
             
             cmd.SetViewProjectionMatrices(viewMatrix, projectionMatrix);
             context.ExecuteCommandBuffer(cmd);
@@ -239,7 +258,7 @@ namespace UnityEngine.Rendering.Universal.Internal
             RenderingUtils.RenderObjectsWithError(context, ref renderingData.cullResults, renderingData.cameraData.camera, data.filteringSettings, SortingCriteria.None);
         }
         
-        internal void ReAllocateGBufferIfNeeded(RenderTextureDescriptor gbufferSlice, int gbufferIndex)
+        internal void ReAllocateGBufferIfNeeded(RenderTextureDescriptor gbufferSlice, int resolution, int gbufferIndex)
         {
             if (this.RSMbufferRTHandles != null)
             {
@@ -249,8 +268,8 @@ namespace UnityEngine.Rendering.Universal.Internal
                 gbufferSlice.depthBufferBits = 0; // make sure no depth surface is actually created
                 gbufferSlice.stencilFormat = GraphicsFormat.None;
                 gbufferSlice.graphicsFormat = this.GetGBufferFormat(gbufferIndex);
-                gbufferSlice.width = 256;
-                gbufferSlice.height = 256;
+                gbufferSlice.width = resolution;
+                gbufferSlice.height = resolution;
                 RenderingUtils.ReAllocateIfNeeded(ref this.RSMbufferRTHandles[gbufferIndex], gbufferSlice, FilterMode.Point, TextureWrapMode.Clamp, name: k_GBufferNames[gbufferIndex]);
                 this.RSMbufferAttachments[gbufferIndex] = this.RSMbufferRTHandles[gbufferIndex];
             }

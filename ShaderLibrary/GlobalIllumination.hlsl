@@ -464,6 +464,7 @@ TEXTURE2D(_RSMNormalBuffer);
 TEXTURE2D(_RSMDepthTexture); SAMPLER(sampler_RSMDepthTexture);
 
 float4x4 inverseLightViewProjectionMatrix;
+float4 _RSMFluxBuffer_TexelSize;
 float _RSMSampleCount;
 float _RSMIntensity;
 
@@ -482,7 +483,7 @@ float3 SampleRSM(float4 positionWS ,half3 normal) {
     float3 worldPos = positionWS;
     float4 shadowCoord = TransformWorldToShadowCoord(worldPos.xyz);
     float3 diffuse = 0.0f;
-    float sampleScale = 256.0f / _RSMSampleCount;
+    float sampleScale = _RSMFluxBuffer_TexelSize.z / _RSMSampleCount;
 
     [unroll(_RSMSampleCount)];
     for (int i = 0; i < _RSMSampleCount; i++) {

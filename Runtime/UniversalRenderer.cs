@@ -626,6 +626,8 @@ namespace UnityEngine.Rendering.Universal
             bool isGizmosEnabled = false;
 #endif
 
+            bool rsm = m_RSMBufferPass.Setup(ref renderingData);
+
             bool mainLightShadows = m_MainLightShadowCasterPass.Setup(ref renderingData);
             bool additionalLightShadows = m_AdditionalLightsShadowCasterPass.Setup(ref renderingData);
             bool transparentsNeedSettingsPass = m_TransparentSettingsPass.Setup(ref renderingData);
@@ -1006,7 +1008,7 @@ namespace UnityEngine.Rendering.Universal
                 if (m_DeferredLights.UseRenderPass && (RenderPassEvent.AfterRenderingGbuffer == renderPassInputs.requiresDepthNormalAtEvent || !useRenderPassEnabled))
                     m_DeferredLights.DisableFramebufferFetchInput();
 
-                EnqueueDeferred(ref renderingData, requiresDepthPrepass, renderPassInputs.requiresNormalsTexture, renderingLayerProvidesByDepthNormalPass, mainLightShadows, additionalLightShadows);
+                EnqueueDeferred(ref renderingData, requiresDepthPrepass, renderPassInputs.requiresNormalsTexture, renderingLayerProvidesByDepthNormalPass, mainLightShadows, additionalLightShadows, rsm);
             }
             else
             {
@@ -1322,7 +1324,7 @@ namespace UnityEngine.Rendering.Universal
             m_ActiveCameraDepthAttachment = null;
         }
 
-        void EnqueueDeferred(ref RenderingData renderingData, bool hasDepthPrepass, bool hasNormalPrepass, bool hasRenderingLayerPrepass, bool applyMainShadow, bool applyAdditionalShadow)
+        void EnqueueDeferred(ref RenderingData renderingData, bool hasDepthPrepass, bool hasNormalPrepass, bool hasRenderingLayerPrepass, bool applyMainShadow, bool applyAdditionalShadow, bool rsm)
         {
             m_DeferredLights.Setup(
                 ref renderingData,
@@ -1341,7 +1343,10 @@ namespace UnityEngine.Rendering.Universal
                 m_DeferredPass.Configure(null, renderingData.cameraData.cameraTargetDescriptor);
             }
 
-            EnqueuePass(m_RSMBufferPass);
+            if (rsm)
+            {
+                EnqueuePass(m_RSMBufferPass);
+            }
             
             EnqueuePass(m_GBufferPass);
 

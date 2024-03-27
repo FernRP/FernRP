@@ -5,8 +5,9 @@ namespace UnityEngine.Rendering.Universal
     [Serializable, VolumeComponentMenuForRenderPipeline("Lighting/RSM", typeof(UniversalRenderPipeline))]
     public class RSMVolume: VolumeComponent, IPostProcessComponent
     {
+        
         public BoolParameter isEnable = new BoolParameter(false);
-        public FloatParameter maxDistance = new FloatParameter(10);
+        public BoolParameter OnlyAdditionalLight = new BoolParameter(false);
         public FloatParameter RSMSampleCount = new FloatParameter(32);
         public FloatParameter RSMIntensity = new FloatParameter(1);
 
