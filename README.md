@@ -1,6 +1,18 @@
 # FernRP
 A high-quality and stylized URP-based rendering pipeline.
 
+## Feature
+
+### Shading
+| Feature                       | Demo                                                                                                                                               |
+|-------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
+| NPR Uber Shader               | Includes a variety of cartoon rendering features, [ShowCase](https://github.com/FernRP/FernRPExample/wiki/Global-Illumination)                     |
+| Post-Processing Outline       | Edge Detection Outline, [ShowCase](https://github.com/FernRP/FernRPExample/wiki/Render-Feature#edge-detection-outline)                             |
+| Depth Offset Rim              | Isometric Edge Lighting in Screen Space with Depth Offset, [ShowCase](https://github.com/FernRP/FernRPExample/wiki/Render-Feature#depth-offset-rim) |
+| Localized Perspective Removal | Localized perspective can be removed, [ShowCase](https://github.com/FernRP/FernRPExample/wiki/NPR-Shading#persepctive-remove)                      |
+| Micro Grain BRDF              | Micro Grain BRDF Shader, [ShowCase](https://github.com/FernRP/FernRPExample/wiki/PBR-Shading#micro-grain-brdf)                                     |
+| RSM                           | The classic RSM global illumination approach, [ShowCase](https://github.com/FernRP/FernRPExample/wiki/Global-Illumination#rsm)                      |
+
 ## Projects using FernRP
 
 The [FernRender](https://github.com/FernRender/FernRender) project is the implementation of this Package.
@@ -9,15 +21,6 @@ The [FernRender](https://github.com/FernRender/FernRender) project is the implem
  
 ## More Examples
 More showcase in [Wiki](https://github.com/DeJhon-Huang/FernNPR/wiki), please visit [More Example](https://github.com/DeJhon-Huang/FernNPR/wiki/More-Example) on the [Wiki](https://github.com/DeJhon-Huang/FernNPR/wiki)
-
-
-# Change Log
-### 2024-01-03 
-Integration into urp version 14.0.8
-
-### First version
-Look at this branch: [Open-2022](https://github.com/FernRP/FernRP/tree/open-2022)
-
 
 # Related links
 
