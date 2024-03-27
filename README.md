@@ -2,8 +2,6 @@
 A high-quality and stylized URP-based rendering pipeline.
 
 ## Feature
-
-### Shading
 | Feature                       | Demo                                                                                                                                               |
 |-------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
 | NPR Uber Shader               | Includes a variety of cartoon rendering features, [ShowCase](https://github.com/FernRP/FernRPExample/wiki/NPR-Shading)                     |
