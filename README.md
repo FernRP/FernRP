@@ -1,6 +1,3 @@
-![cover](https://github.com/DeJhon-Huang/FernNPR/blob/master/DocAssets/cover.jpg)
-------------------------------------
-
 # FernRP
 A high-quality and stylized URP-based rendering pipeline.
 
