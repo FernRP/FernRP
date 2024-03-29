@@ -5,6 +5,11 @@ using UnityEngine.Experimental.Rendering.RenderGraphModule;
 
 namespace UnityEngine.Rendering.Universal.Internal
 {
+    /// <summary>
+    /// RSM is not suitable for combining with Unity's Directional ShadowMap,
+    /// because as Distance increases, RSM's Flux will contain a lot of information.
+    /// TODO: Adding support for additional light would be useful
+    /// </summary>
     public class RSMBufferPass : ScriptableRenderPass
     {
         static ShaderTagId s_ShaderTagLit = new ShaderTagId("Lit");
@@ -242,11 +247,11 @@ namespace UnityEngine.Rendering.Universal.Internal
             context.DrawRenderers(renderingData.cullResults, ref data.drawingSettings, ref data.filteringSettings, s_ShaderTagUniversalMaterialType, false, tagValues, stateBlocks);
 
             cmd.SetViewProjectionMatrices(renderingData.cameraData.GetViewMatrix(), renderingData.cameraData.GetProjectionMatrix());
-            cmd.SetGlobalFloat("_RSMSampleCount", m_VolumeComponent.RSMSampleCount.value);
-            cmd.SetGlobalFloat("_RSMIntensity", m_VolumeComponent.RSMIntensity.value);
+            cmd.SetGlobalFloat(ShaderPropertyId.rsmSampleCount, m_VolumeComponent.RSMSampleCount.value);
+            cmd.SetGlobalFloat(ShaderPropertyId.rsmIntensity, m_VolumeComponent.RSMIntensity.value);
             Matrix4x4 VPMatrix = projectionMatrix * viewMatrix;
             VPMatrix.SetRow(1, -VPMatrix.GetRow(1));
-            cmd.SetGlobalMatrix("inverseLightViewProjectionMatrix", VPMatrix.inverse);
+            cmd.SetGlobalMatrix(ShaderPropertyId.inverseLightViewProjectionMatrix, VPMatrix.inverse);
 
             context.ExecuteCommandBuffer(cmd);
             cmd.Clear();

@@ -918,6 +918,11 @@ namespace UnityEngine.Rendering.Universal
         public static readonly int overlayUITexture = Shader.PropertyToID("_OverlayUITexture");
         public static readonly int hdrOutputLuminanceParams = Shader.PropertyToID("_HDROutputLuminanceParams");
         public static readonly int hdrOutputGradingParams = Shader.PropertyToID("_HDROutputGradingParams");
+        
+        // FernRP
+        public static readonly int rsmSampleCount = Shader.PropertyToID("_RSMSampleCount");
+        public static readonly int rsmIntensity = Shader.PropertyToID("_RSMIntensity");
+        public static readonly int inverseLightViewProjectionMatrix = Shader.PropertyToID("_InverseLightViewProjectionMatrix");
     }
 
     /// <summary>

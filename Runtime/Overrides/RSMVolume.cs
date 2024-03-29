@@ -2,7 +2,7 @@
 
 namespace UnityEngine.Rendering.Universal
 {
-    [Serializable, VolumeComponentMenuForRenderPipeline("Lighting/RSM", typeof(UniversalRenderPipeline))]
+    [Serializable, VolumeComponentMenuForRenderPipeline("FernRP/Lighting/RSM", typeof(UniversalRenderPipeline))]
     public class RSMVolume: VolumeComponent, IPostProcessComponent
     {
         
