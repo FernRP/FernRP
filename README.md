@@ -2,11 +2,9 @@
 A high-quality and stylized URP-based rendering pipeline.
 
 ## Feature
-
-### Shading
 | Feature                       | Demo                                                                                                                                               |
 |-------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
-| NPR Uber Shader               | Includes a variety of cartoon rendering features, [ShowCase](https://github.com/FernRP/FernRPExample/wiki/Global-Illumination)                     |
+| NPR Uber Shader               | Includes a variety of cartoon rendering features, [ShowCase](https://github.com/FernRP/FernRPExample/wiki/NPR-Shading)                     |
 | Post-Processing Outline       | Edge Detection Outline, [ShowCase](https://github.com/FernRP/FernRPExample/wiki/Render-Feature#edge-detection-outline)                             |
 | Depth Offset Rim              | Isometric Edge Lighting in Screen Space with Depth Offset, [ShowCase](https://github.com/FernRP/FernRPExample/wiki/Render-Feature#depth-offset-rim) |
 | Localized Perspective Removal | Localized perspective can be removed, [ShowCase](https://github.com/FernRP/FernRPExample/wiki/NPR-Shading#persepctive-remove)                      |
