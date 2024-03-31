@@ -626,7 +626,11 @@ namespace UnityEngine.Rendering.Universal
             bool isGizmosEnabled = false;
 #endif
 
-            bool rsm = m_RSMBufferPass.Setup(ref renderingData);
+            bool rsm = false;
+            if (this.renderingModeRequested == RenderingMode.Deferred)
+            {
+                rsm = m_RSMBufferPass.Setup(ref renderingData);
+            }
 
             bool mainLightShadows = m_MainLightShadowCasterPass.Setup(ref renderingData);
             bool additionalLightShadows = m_AdditionalLightsShadowCasterPass.Setup(ref renderingData);
