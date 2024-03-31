@@ -44,7 +44,7 @@ Shader "FernRender/URP/FERNNPRFace"
         [Sub(Diffuse)] [ShowIf(_enum_diffuse, Equal, 1)] _RampMapUOffset ("Ramp Map U Offset", Range(-1,1)) = 0
         [Sub(Diffuse)] [ShowIf(_enum_diffuse, Equal, 1)] _RampMapVOffset ("Ramp Map V Offset", Range(0,1)) = 0.5
         [Tex(Diffuse_SDFFACE)] _SDFFaceTex("SDF Face Tex", 2D) = "white" {}
-        [Sub(Diffuse_SDFFACE)]  _SDFFaceArea ("Face Area (0~360)",Range(0,360)) = 0
+        [Sub(Diffuse_SDFFACE)]  _SDFFaceArea ("Face Angle Range (0~360)",Range(0,360)) = 0
         [SubToggle(Diffuse_SDFFACE)]  _SDFDirectionReversal ("Direction Reversal",Float) = 0 
         [Sub(Diffuse_SDFFACE)]  _SDFShadingSoftness ("Shading Softness",Range(0,1)) = 0.3
         
@@ -152,7 +152,7 @@ Shader "FernRender/URP/FERNNPRFace"
         Pass
         {
             Name "FernDepthPrePass"
-            Tags{"LightMode" = "SRPDefaultUnlit"} // Hard Code Now
+            Tags{"LightMode" = "FernDepthPrePass"} // TODO
 
             Blend Off
             ZWrite on
