@@ -1,4 +1,4 @@
-Shader "FernRender/URP/FERNNPREye"
+Shader "FernRP/URP/FERNNPREye"
 {
     Properties
     {

@@ -14,8 +14,8 @@ namespace UnityEngine.Rendering.Universal
         public bool IsActive() => isEnable.value;
 
         public bool IsTileCompatible()
-        { 
-            throw new System.NotImplementedException();
+        {
+            return false;
         }
     }
 }

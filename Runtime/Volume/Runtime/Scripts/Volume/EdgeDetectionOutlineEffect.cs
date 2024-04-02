@@ -6,7 +6,7 @@ using UnityEngine.Serialization;
 
 namespace UnityEngine.Rendering.FernRenderPipeline
 {
-    [System.Serializable, VolumeComponentMenu("FernRender/Edge Detection Outline")]
+    [System.Serializable, VolumeComponentMenu("FernRP/Edge Detection Outline")]
     public class EdgeDetectionOutlineEffect : VolumeComponent
     {
         [Tooltip("Controls the Effect Intensity")]

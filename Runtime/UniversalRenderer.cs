@@ -504,6 +504,8 @@ namespace UnityEngine.Rendering.Universal
             ref CameraData cameraData = ref renderingData.cameraData;
             Camera camera = cameraData.camera;
             RenderTextureDescriptor cameraTargetDescriptor = cameraData.cameraTargetDescriptor;
+            var stack = VolumeManager.instance.stack;
+            var rsmVolume = stack.GetComponent<RSMVolume>();
 
             var cmd = renderingData.commandBuffer;
             if (DebugHandler != null)
@@ -625,12 +627,15 @@ namespace UnityEngine.Rendering.Universal
 #else
             bool isGizmosEnabled = false;
 #endif
-
             bool rsm = false;
-            if (this.renderingModeRequested == RenderingMode.Deferred)
+            if (rsmVolume.IsActive())
             {
-                rsm = m_RSMBufferPass.Setup(ref renderingData);
+                if (this.renderingModeRequested == RenderingMode.Deferred)
+                {
+                    rsm = m_RSMBufferPass.Setup(ref renderingData, rsmVolume);
+                }
             }
+            
 
             bool mainLightShadows = m_MainLightShadowCasterPass.Setup(ref renderingData);
             bool additionalLightShadows = m_AdditionalLightsShadowCasterPass.Setup(ref renderingData);

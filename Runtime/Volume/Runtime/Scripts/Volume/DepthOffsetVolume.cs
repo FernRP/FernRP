@@ -6,7 +6,7 @@ using UnityEngine.Rendering.Universal;
 
 namespace UnityEngine.Rendering.FernRenderPipeline
 {
-    [System.Serializable, VolumeComponentMenu("FernRender/Depth Offset")]
+    [System.Serializable, VolumeComponentMenu("FernRP/Depth Offset")]
     public class DepthOffsetVolume : VolumeComponent, IPostProcessComponent
     {
         public BoolParameter isEnable = new BoolParameter(false);

@@ -100,7 +100,7 @@ namespace UnityEngine.Rendering.Universal.Internal
                 return GraphicsFormat.None;
         }
 
-        internal bool Setup(ref RenderingData renderingData)
+        internal bool Setup(ref RenderingData renderingData, RSMVolume rsmVolume)
         {
             if (!renderingData.shadowData.mainLightShadowsEnabled)
                 return false;
@@ -108,8 +108,7 @@ namespace UnityEngine.Rendering.Universal.Internal
             if (!renderingData.shadowData.supportsMainLightShadows)
                 return false;
             
-            var stack = VolumeManager.instance.stack;
-            m_VolumeComponent = stack.GetComponent<RSMVolume>();
+            m_VolumeComponent = rsmVolume;
             if(!m_VolumeComponent.IsActive()) return false;
             
             CreateGbufferResources();
@@ -150,8 +149,6 @@ namespace UnityEngine.Rendering.Universal.Internal
 
         public override void Configure(CommandBuffer cmd, RenderTextureDescriptor cameraTextureDescriptor)
         {
-            var stack = VolumeManager.instance.stack;
-            m_VolumeComponent = stack.GetComponent<RSMVolume>();
             if(!m_VolumeComponent.IsActive()) return;
             
             if (cmd != null)

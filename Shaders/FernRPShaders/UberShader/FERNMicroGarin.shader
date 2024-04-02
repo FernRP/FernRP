@@ -1,4 +1,4 @@
-Shader "FernRender/URP/FERNMicroGarin"
+Shader "FernRP/URP/FERNMicroGarin"
 {
     Properties
     {

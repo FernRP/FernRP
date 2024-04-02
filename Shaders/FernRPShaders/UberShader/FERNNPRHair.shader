@@ -1,4 +1,4 @@
-Shader "FernRender/URP/FERNNPRHair"
+Shader "FernRP/URP/FERNNPRHair"
 {
     Properties
     {
