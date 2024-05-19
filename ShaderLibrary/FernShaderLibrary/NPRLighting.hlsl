@@ -71,6 +71,7 @@ inline half DepthRim(half depthRimOffset, half reverseX, half rimDepthDiffThresh
     float depthTextureLinearDepth = DepthSamplerToLinearDepth(depthTextureValue);
     half depthRim = saturate((depthTextureLinearDepth - (addInputData.linearEyeDepth + rimDepthDiffThresholdOffset)));
     depthRim = lerp(0, depthRim, addInputData.linearEyeDepth);
+    
     return depthRim;
 }
 
@@ -80,8 +81,10 @@ inline void SDFFaceUV(half reversal, half faceArea, out half2 result)
         Light mainLight = GetMainLight();
         half2 lightDir = normalize(mainLight.direction.xz);
 
-        half2 Front = normalize(_FaceObjectToWorld._13_33);
-        half2 Right = normalize(_FaceObjectToWorld._11_31);
+        // In case of SkinMeshRender,
+        // ObjectToWorld needs to be calculated based on the orientation of the bones.
+        half2 Front = normalize(unity_ObjectToWorld._13_33);
+        half2 Right = normalize(unity_ObjectToWorld._11_31);
 
         float FdotL = dot(Front, lightDir);
         float RdotL = dot(Right, lightDir) * lerp(1, -1, reversal);
