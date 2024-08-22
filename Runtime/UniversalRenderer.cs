@@ -104,6 +104,7 @@ namespace UnityEngine.Rendering.Universal
         DrawObjectsPass m_RenderOpaqueForwardPass;
         DrawObjectsWithRenderingLayersPass m_RenderOpaqueForwardWithRenderingLayersPass;
         DrawSkyboxPass m_DrawSkyboxPass;
+        SkyUpdatePass m_SkyUpdatePass;
         CopyDepthPass m_CopyDepthPass;
         CopyColorPass m_CopyColorPass;
         TransparentSettingsPass m_TransparentSettingsPass;
@@ -296,6 +297,7 @@ namespace UnityEngine.Rendering.Universal
                 copyResolvedDepth: RenderingUtils.MultisampleDepthResolveSupported() && copyDepthAfterTransparents);
 
             m_DrawSkyboxPass = new DrawSkyboxPass(RenderPassEvent.BeforeRenderingSkybox);
+            m_SkyUpdatePass = new SkyUpdatePass(RenderPassEvent.AfterRenderingSkybox, data.postProcessData);
             m_CopyColorPass = new CopyColorPass(RenderPassEvent.AfterRenderingSkybox, m_SamplingMaterial, m_BlitMaterial);
 #if ADAPTIVE_PERFORMANCE_2_1_0_OR_NEWER
             if (needTransparencyPass)
@@ -1090,6 +1092,16 @@ namespace UnityEngine.Rendering.Universal
             {
                 m_CopyDepthPass.Setup(m_ActiveCameraDepthAttachment, m_DepthTexture);
                 EnqueuePass(m_CopyDepthPass);
+            }
+            
+            if (camera.clearFlags == CameraClearFlags.Skybox && cameraData.renderType != CameraRenderType.Overlay)
+            {
+                if (RenderSettings.skybox != null ||
+                    (camera.TryGetComponent(out Skybox cameraSkybox) && cameraSkybox.material != null))
+                {
+                    m_SkyUpdatePass.Setup();
+                    EnqueuePass(m_SkyUpdatePass);
+                }
             }
 
             // Set the depth texture to the far Z if we do not have a depth prepass or copy depth

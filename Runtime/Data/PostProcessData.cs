@@ -136,6 +136,12 @@ namespace UnityEngine.Rendering.Universal
             /// </summary>
             [Reload("Shaders/PostProcessing/FinalPost.shader")]
             public Shader finalPostPassPS;
+            
+            /// <summary>
+            /// The Final Post Processing shader.
+            /// </summary>
+            [Reload("Shaders/Sky/SHConvolution.compute")]
+            public ComputeShader shConvolutionCS;
         }
 
         /// <summary>
