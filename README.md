@@ -10,6 +10,7 @@ A high-quality and stylized URP-based rendering pipeline.
 | Localized Perspective Removal | Localized perspective can be removed, [ShowCase](https://github.com/FernRP/FernRPExample/wiki/NPR-Shading#persepctive-remove)                      |
 | Micro Grain BRDF              | Micro Grain BRDF Shader, [ShowCase](https://github.com/FernRP/FernRPExample/wiki/PBR-Shading#micro-grain-brdf)                                     |
 | RSM                           | The classic RSM global illumination approach, [ShowCase](https://github.com/FernRP/FernRPExample/wiki/Global-Illumination#rsm)                      |
+| Realtime ambient probe        | Realtime compute sh coeff with GPU, [ShowCase](https://github.com/FernRP/FernRPExample/wiki/Global-Illumination#realtime-ambient-probe)             |
 
 ## Projects using FernRP
 
