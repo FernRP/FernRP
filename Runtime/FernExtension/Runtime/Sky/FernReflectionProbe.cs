@@ -15,8 +15,8 @@ namespace UnityEngine.Rendering.Universal
             reflectionProbe.mode = ReflectionProbeMode.Realtime;
             reflectionProbe.refreshMode = ReflectionProbeRefreshMode.ViaScripting;
             reflectionProbe.timeSlicingMode = ReflectionProbeTimeSlicingMode.AllFacesAtOnce;
-            reflectionProbe.cullingMask = (LayerMask)0;
             reflectionProbe.clearFlags = ReflectionProbeClearFlags.Skybox;
+            Shader.SetGlobalTexture(AmbientSkyCube, reflectionProbe.texture);
         }
 
         private void LateUpdate()
