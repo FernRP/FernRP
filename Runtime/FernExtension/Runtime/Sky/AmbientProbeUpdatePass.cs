@@ -3,12 +3,15 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Experimental.Rendering.RenderGraphModule;
-
-
 namespace UnityEngine.Rendering.Universal
 {
-    class SkyUpdatePass : ScriptableRenderPass
+    internal class AmbientProbeUpdatePass : ScriptableRenderPass
     {
+        struct CameraTemporarySettings
+        {
+            public float fieldOfView;
+            public float aspect;
+        };
         
         static readonly int s_AmbientProbeOutputBufferParam = Shader.PropertyToID("_AmbientProbeOutputBuffer");
         static readonly int s_VolumetricAmbientProbeOutputBufferParam = Shader.PropertyToID("_VolumetricAmbientProbeOutputBuffer");
@@ -16,6 +19,8 @@ namespace UnityEngine.Rendering.Universal
         static readonly int s_ScratchBufferParam = Shader.PropertyToID("_ScratchBuffer");
         static readonly int s_AmbientProbeInputCubemap = Shader.PropertyToID("_AmbientProbeInputCubemap");
         static readonly int s_FogParameters = Shader.PropertyToID("_FogParameters");
+
+        private AmbientProbeUpdateVolume m_VolumeComponent;
 
         public Cubemap skyCubemap;
         
@@ -30,18 +35,11 @@ namespace UnityEngine.Rendering.Universal
         internal bool ambientProbeIsReady = false;
         
         public int computeAmbientProbeKernel;
+        
+        private RTHandle blackCubemapRT;
+        private static readonly int AmbientSkyCube = Shader.PropertyToID("_AmbientSkyCube");
 
-        private Vector3[] kCubemapOrthoBases = new[]
-        {
-            new Vector3(0, 0, -1), new Vector3(0, -1, 0), new Vector3(-1, 0, 0),
-            new Vector3(0, 0, 1), new Vector3(0, -1, 0), new Vector3(1, 0, 0),
-            new Vector3(1, 0, 0), new Vector3(0, 0, 1), new Vector3(0, -1, 0),
-            new Vector3(1, 0, 0), new Vector3(0, 0, -1), new Vector3(0, 1, 0),
-            new Vector3(1, 0, 0), new Vector3(0, -1, 0), new Vector3(0, 0, -1),
-            new Vector3(-1, 0, 0), new Vector3(0, -1, 0), new Vector3(0, 0, 1),
-        };
-
-        public SkyUpdatePass(RenderPassEvent renderPassEvent, PostProcessData data)
+        public AmbientProbeUpdatePass(RenderPassEvent renderPassEvent, PostProcessData data)
         {
             this.renderPassEvent = renderPassEvent;
             computeAmbientProbeCS = data.shaders.shConvolutionCS;
@@ -57,51 +55,32 @@ namespace UnityEngine.Rendering.Universal
             diffuseAmbientProbeBuffer = new ComputeBuffer(7, 16);
 
             scratchBuffer = new ComputeBuffer(27, sizeof(uint));
+
+            RenderTextureDescriptor desc = new RenderTextureDescriptor();
+            desc.colorFormat = RenderTextureFormat.ARGBHalf;
+            desc.dimension = TextureDimension.Cube;
+            desc.width = 2;
+            desc.height = 2;
+            desc.depthBufferBits = 0;
+            desc.msaaSamples = 1;
+            RenderingUtils.ReAllocateIfNeeded(ref blackCubemapRT, desc, FilterMode.Bilinear, TextureWrapMode.Clamp,
+                name: "_AmbientSkyCube");
+            Shader.SetGlobalTexture(AmbientSkyCube, blackCubemapRT);
         }
 
-        private RTHandle cubemapRT;
-        
         public void Setup()
         {
             ClearAmbientProbe();
         }
 
-        public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
-        {
-            var des = renderingData.cameraData.cameraTargetDescriptor;
-            des.dimension = TextureDimension.Cube;
-            des.width = 32;
-            des.height = 32;
-            des.depthBufferBits = 0;
-            des.msaaSamples = 1;
-            RenderingUtils.ReAllocateIfNeeded(ref cubemapRT, des, FilterMode.Bilinear, TextureWrapMode.Clamp,
-                name: "_AmbientSkyCube");
-        
-        }
-
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
         {
+            var stack = VolumeManager.instance.stack;
+            m_VolumeComponent = stack.GetComponent<AmbientProbeUpdateVolume>();
+            if(!m_VolumeComponent.IsActive()) return;
+            
             var cmd = renderingData.commandBuffer;
-            var camera = renderingData.cameraData.camera;
-            
-            // Render Sky Cube
-            for (int i = 0; i < 6; ++i)
-            {
-            
-                var viewMatrix = camera.worldToCameraMatrix;
-                viewMatrix = viewMatrix.SetBasisTransposed(kCubemapOrthoBases[i * 3 + 0], kCubemapOrthoBases[i * 3 + 1], kCubemapOrthoBases[i * 3 + 2]);
-                Matrix4x4 inverseTransformMat = Matrix4x4.identity;
-                inverseTransformMat.SetTranslate(-camera.transform.position);
-                viewMatrix *= inverseTransformMat;
-                cmd.SetViewMatrix(viewMatrix);
-                CoreUtils.SetRenderTarget(cmd, cubemapRT, ClearFlag.None, 0, (CubemapFace)i);
-            
-                context.ExecuteCommandBuffer(cmd);
-                context.DrawSkybox(camera);
-            }
-            cmd.Clear();
-            cmd.SetViewMatrix(renderingData.cameraData.GetViewMatrix());
-            cmd.SetGlobalTexture("_AmbientSkyCube", cubemapRT);
+
             cmd.SetComputeBufferParam(computeAmbientProbeCS, computeAmbientProbeKernel, s_AmbientProbeOutputBufferParam, ambientProbeResult);
             cmd.SetComputeBufferParam(computeAmbientProbeCS, computeAmbientProbeKernel, s_ScratchBufferParam, scratchBuffer);
             cmd.SetComputeTextureParam(computeAmbientProbeCS, computeAmbientProbeKernel, s_AmbientProbeInputCubemap, skyCubemap);
@@ -116,7 +95,7 @@ namespace UnityEngine.Rendering.Universal
                 cmd.RequestAsyncReadback(ambientProbeResult, OnComputeAmbientProbeDone);
             }
         }
-
+        
         internal void SetupAmbientProbe()
         {
             // Order is important!

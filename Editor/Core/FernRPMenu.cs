@@ -2,6 +2,7 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.FernRenderPipeline;
+using UnityEngine.Rendering.Universal;
 
 namespace UnityEditor.Rendering.FernRenderPipeline
 {
@@ -22,6 +23,21 @@ namespace UnityEditor.Rendering.FernRenderPipeline
             }
             
             Selection.activeObject = fernRP.gameObject;
+        } 
+        
+        [MenuItem("GameObject/Light/Fern Reflection Probe", false, 99)]
+        public static void CreateFernReflectionProbe()
+        {
+            var fernReflection = GameObject.FindObjectOfType<FernReflectionProbe>();
+            if (fernReflection == null)
+            {
+                var fernReflectionProbeGo = new GameObject();
+                fernReflectionProbeGo.name = "Fern Reflection Probe";
+                var reflection = fernReflectionProbeGo.AddComponent<ReflectionProbe>();
+                fernReflection = fernReflectionProbeGo.AddComponent<FernReflectionProbe>();
+            }
+            
+            Selection.activeObject = fernReflection.gameObject;
         }
     }
 }
