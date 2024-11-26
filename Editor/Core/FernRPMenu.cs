@@ -28,13 +28,13 @@ namespace UnityEditor.Rendering.FernRenderPipeline
         [MenuItem("GameObject/Light/Fern Reflection Probe", false, 99)]
         public static void CreateFernReflectionProbe()
         {
-            var fernReflection = GameObject.FindObjectOfType<FernReflectionProbe>();
+            var fernReflection = GameObject.FindObjectOfType<FernAdditionalReflectionProbe>();
             if (fernReflection == null)
             {
                 var fernReflectionProbeGo = new GameObject();
                 fernReflectionProbeGo.name = "Fern Reflection Probe";
                 var reflection = fernReflectionProbeGo.AddComponent<ReflectionProbe>();
-                fernReflection = fernReflectionProbeGo.AddComponent<FernReflectionProbe>();
+                fernReflection = fernReflectionProbeGo.AddComponent<FernAdditionalReflectionProbe>();
             }
             
             Selection.activeObject = fernReflection.gameObject;

@@ -62,6 +62,7 @@ namespace UnityEngine.Rendering.Universal.Internal
 
         LightCookieManager m_LightCookieManager;
         ReflectionProbeManager m_ReflectionProbeManager;
+        FernReflectionProbeManager m_FernReflectionProbeManager;
         int m_WordsPerTile;
         float m_ZBinScale;
         float m_ZBinOffset;
@@ -136,6 +137,8 @@ namespace UnityEngine.Rendering.Universal.Internal
                 CreateForwardPlusBuffers();
                 m_ReflectionProbeManager = ReflectionProbeManager.Create();
             }
+
+            m_FernReflectionProbeManager = FernReflectionProbeManager.Create();
 
             m_LightCookieManager = initParams.lightCookieManager;
         }
@@ -370,6 +373,9 @@ namespace UnityEngine.Rendering.Universal.Internal
                     cmd.SetGlobalVector("_FPParams1", math.float4(renderingData.cameraData.pixelRect.size / m_ActualTileWidth, m_TileResolution.x, m_WordsPerTile));
                     cmd.SetGlobalVector("_FPParams2", math.float4(m_BinCount, m_TileResolution.x * m_TileResolution.y, 0, 0));
                 }
+                
+                // Fern RP Ext
+                m_FernReflectionProbeManager.UpdateGpuData(cmd, ref renderingData);
 
                 SetupShaderLightConstants(cmd, ref renderingData);
 

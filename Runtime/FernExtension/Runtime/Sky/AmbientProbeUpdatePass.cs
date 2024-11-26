@@ -36,7 +36,6 @@ namespace UnityEngine.Rendering.Universal
         
         public int computeAmbientProbeKernel;
         
-        private RTHandle blackCubemapRT;
         private static readonly int AmbientSkyCube = Shader.PropertyToID("_AmbientSkyCube");
 
         public AmbientProbeUpdatePass(RenderPassEvent renderPassEvent, PostProcessData data)
@@ -56,16 +55,6 @@ namespace UnityEngine.Rendering.Universal
 
             scratchBuffer = new ComputeBuffer(27, sizeof(uint));
 
-            RenderTextureDescriptor desc = new RenderTextureDescriptor();
-            desc.colorFormat = RenderTextureFormat.ARGBHalf;
-            desc.dimension = TextureDimension.Cube;
-            desc.width = 2;
-            desc.height = 2;
-            desc.depthBufferBits = 0;
-            desc.msaaSamples = 1;
-            RenderingUtils.ReAllocateIfNeeded(ref blackCubemapRT, desc, FilterMode.Bilinear, TextureWrapMode.Clamp,
-                name: "_AmbientSkyCube");
-            Shader.SetGlobalTexture(AmbientSkyCube, blackCubemapRT);
         }
 
         public void Setup()

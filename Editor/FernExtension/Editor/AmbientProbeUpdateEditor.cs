@@ -11,7 +11,7 @@ namespace UnityEditor.Rendering.Universal
     [CustomEditor(typeof(AmbientProbeUpdateVolume))]
     public class AmbientProbeUpdateEditor : VolumeComponentEditor
     {
-        private FernReflectionProbe m_ReflectionProbe;
+        private FernAdditionalReflectionProbe _mAdditionalReflectionProbe;
         private AmbientProbeUpdateVolume m_target;
 
         public override void OnEnable()
@@ -22,8 +22,8 @@ namespace UnityEditor.Rendering.Universal
 
         public override void OnInspectorGUI()
         {
-            m_ReflectionProbe = GameObject.FindObjectOfType<FernReflectionProbe>();
-            if (m_ReflectionProbe == null)
+            _mAdditionalReflectionProbe = GameObject.FindObjectOfType<FernAdditionalReflectionProbe>();
+            if (_mAdditionalReflectionProbe == null)
             {
                 EditorGUILayout.Space();
                 DrawFixMeBox(new GUIContent("Fern Reflection Probe not found, cannot be turned on"), "Fix", () =>
