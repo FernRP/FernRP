@@ -8,9 +8,9 @@ using UnityEngine.Rendering.Universal;
 namespace UnityEngine.Rendering.FernRenderPipeline
 {
     [Serializable]
-    public class FernPostProcess : ScriptableRendererFeature
+    public class FernRPCoreFeature : ScriptableRendererFeature
     {
-        private FernPostProcessRenderPass m_BeforeOpaquePass, m_AfterOpaqueAndSkyPass, m_BeforePostProcessPass, m_AfterPostProcessPass;
+        private FernCoreFeatureRenderPass m_BeforeOpaquePass, m_AfterOpaqueAndSkyPass, _mBeforeCoreFeaturePass, _mAfterCoreFeaturePass;
 
         public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
         {
@@ -28,22 +28,24 @@ namespace UnityEngine.Rendering.FernRenderPipeline
                     m_AfterOpaqueAndSkyPass.Setup(renderer);
                     renderer.EnqueuePass(m_AfterOpaqueAndSkyPass);
                 }
-                if (m_BeforePostProcessPass.HasPostProcessRenderers &&
-                    m_BeforePostProcessPass.PrepareRenderers(ref renderingData))
+                if (_mBeforeCoreFeaturePass.HasPostProcessRenderers &&
+                    _mBeforeCoreFeaturePass.PrepareRenderers(ref renderingData))
                 {
-                    m_BeforePostProcessPass.Setup(renderer);
-                    renderer.EnqueuePass(m_BeforePostProcessPass);
+                    _mBeforeCoreFeaturePass.Setup(renderer);
+                    renderer.EnqueuePass(_mBeforeCoreFeaturePass);
                 }
             }
         }
 
         public override void Create()
         {
-            List<FernPostProcessRenderer> beforeOpaqueRenderers = new List<FernPostProcessRenderer>();
-            List<FernPostProcessRenderer> afterOpaqueAndSkyRenderers = new List<FernPostProcessRenderer>();
-            List<FernPostProcessRenderer> beforePostProcessRenderers = new List<FernPostProcessRenderer>();
-            List<FernPostProcessRenderer> afterPostProcessRenderers = new List<FernPostProcessRenderer>();
-            
+            List<FernRPFeatureRenderer> beforeOpaqueRenderers = new List<FernRPFeatureRenderer>();
+            List<FernRPFeatureRenderer> afterOpaqueAndSkyRenderers = new List<FernRPFeatureRenderer>();
+            List<FernRPFeatureRenderer> beforePostProcessRenderers = new List<FernRPFeatureRenderer>();
+            List<FernRPFeatureRenderer> afterPostProcessRenderers = new List<FernRPFeatureRenderer>();
+
+            //beforeOpaqueRenderers.Add(new AmbientProbeUpdatePass());
+
             // Sorry, there are some that I can't open source yet
             //beforeOpaqueRenderers.Add(new TrickAreaLightsRender());
             //beforeOpaqueRenderers.Add(new PlanarReflectionRender());
@@ -55,10 +57,10 @@ namespace UnityEngine.Rendering.FernRenderPipeline
             //beforePostProcessRenderers.Add(hbaoRender);
             //beforePostProcessRenderers.Add(new DualKawaseBlurRender());
             
-            m_BeforeOpaquePass = new FernPostProcessRenderPass(FernPostProcessInjectionPoint.BeforeOpaque, beforeOpaqueRenderers);
-            m_AfterOpaqueAndSkyPass = new FernPostProcessRenderPass(FernPostProcessInjectionPoint.AfterOpaqueAndSky, afterOpaqueAndSkyRenderers);
-            m_BeforePostProcessPass = new FernPostProcessRenderPass(FernPostProcessInjectionPoint.BeforePostProcess, beforePostProcessRenderers);
-            m_AfterPostProcessPass = new FernPostProcessRenderPass(FernPostProcessInjectionPoint.AfterPostProcess, afterPostProcessRenderers);
+            m_BeforeOpaquePass = new FernCoreFeatureRenderPass(FernPostProcessInjectionPoint.BeforeOpaque, beforeOpaqueRenderers);
+            m_AfterOpaqueAndSkyPass = new FernCoreFeatureRenderPass(FernPostProcessInjectionPoint.AfterOpaqueAndSky, afterOpaqueAndSkyRenderers);
+            _mBeforeCoreFeaturePass = new FernCoreFeatureRenderPass(FernPostProcessInjectionPoint.BeforePostProcess, beforePostProcessRenderers);
+            _mAfterCoreFeaturePass = new FernCoreFeatureRenderPass(FernPostProcessInjectionPoint.AfterPostProcess, afterPostProcessRenderers);
         }
 
         protected override void Dispose(bool disposing)
@@ -66,20 +68,20 @@ namespace UnityEngine.Rendering.FernRenderPipeline
             base.Dispose(disposing);
             m_BeforeOpaquePass.Dispose();
             m_AfterOpaqueAndSkyPass.Dispose();
-            m_BeforePostProcessPass.Dispose();
-            m_AfterPostProcessPass.Dispose();
+            _mBeforeCoreFeaturePass.Dispose();
+            _mAfterCoreFeaturePass.Dispose();
         }
     }
 
     /// <summary>
     /// A render pass for executing custom post processing renderers.
     /// </summary>
-    public class FernPostProcessRenderPass : ScriptableRenderPass
+    public class FernCoreFeatureRenderPass : ScriptableRenderPass
     {
         private List<ProfilingSampler> m_ProfilingSamplers;
         private string m_PassName;
         private FernPostProcessInjectionPoint injectionPoint;
-        private List<FernPostProcessRenderer> m_PostProcessRenderers;
+        private List<FernRPFeatureRenderer> m_PostProcessRenderers;
         private List<int> m_ActivePostProcessRenderers;
         private Material uber_Material;
         RenderTextureDescriptor m_Descriptor;
@@ -105,7 +107,7 @@ namespace UnityEngine.Rendering.FernRenderPipeline
         /// </summary>
         /// <param name="injectionPoint">The post processing injection point</param>
         /// <param name="classes">The list of classes for the renderers to be executed by this render pass</param>
-        public FernPostProcessRenderPass(FernPostProcessInjectionPoint injectionPoint, List<FernPostProcessRenderer> renderers)
+        public FernCoreFeatureRenderPass(FernPostProcessInjectionPoint injectionPoint, List<FernRPFeatureRenderer> renderers)
         {
             this.injectionPoint = injectionPoint;
             this.m_ProfilingSamplers = new List<ProfilingSampler>(renderers.Count);
@@ -245,7 +247,7 @@ namespace UnityEngine.Rendering.FernRenderPipeline
             CommandBufferPool.Release(cmd);
         }
 
-        void Render(CommandBuffer cmd, ScriptableRenderContext context, FernPostProcessRenderer fernPostRenderer, ref RenderingData renderingData)
+        void Render(CommandBuffer cmd, ScriptableRenderContext context, FernRPFeatureRenderer fernPostRenderer, ref RenderingData renderingData)
         {
             ref CameraData cameraData = ref renderingData.cameraData;
             bool useTemporalAA = cameraData.IsTemporalAAEnabled();

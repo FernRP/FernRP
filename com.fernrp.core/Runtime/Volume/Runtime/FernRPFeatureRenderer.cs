@@ -24,7 +24,7 @@ namespace UnityEngine.Rendering.FernRenderPipeline
     /// <summary>
     /// The Base Class for all the custom post process renderers
     /// </summary>
-    public abstract class FernPostProcessRenderer : IDisposable
+    public abstract class FernRPFeatureRenderer : IDisposable
     {
         private bool _initialized = false;
 
@@ -78,7 +78,7 @@ namespace UnityEngine.Rendering.FernRenderPipeline
         /// <param name="destination">Destination Render Target</param>
         /// <param name="renderingData">Current Rendering Data</param>
         /// <param name="injectionPoint">The injection point from which the renderer is being called</param>
-        public abstract void Render(CommandBuffer cmd, ScriptableRenderContext context, FernPostProcessRenderPass.PostProcessRTHandles rtHandles, ref RenderingData renderingData, FernPostProcessInjectionPoint injectionPoint);
+        public abstract void Render(CommandBuffer cmd, ScriptableRenderContext context, FernCoreFeatureRenderPass.PostProcessRTHandles rtHandles, ref RenderingData renderingData, FernPostProcessInjectionPoint injectionPoint);
 
         /// <summary>
         /// Dispose function, called when the renderer is disposed.

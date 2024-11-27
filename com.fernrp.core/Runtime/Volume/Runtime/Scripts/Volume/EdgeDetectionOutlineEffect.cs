@@ -29,7 +29,7 @@ namespace UnityEngine.Rendering.FernRenderPipeline
     }
 
     [FernPostProcess("Edge Detection", FernPostProcessInjectionPoint.BeforePostProcess)]
-    public class EdgeDetectionEffectRenderer : FernPostProcessRenderer
+    public class EdgeDetectionEffectRenderer : FernRPFeatureRenderer
     {
         private EdgeDetectionOutlineEffect m_VolumeComponent;
         private RTHandle edgeDetectionRTHandle;
@@ -74,7 +74,7 @@ namespace UnityEngine.Rendering.FernRenderPipeline
             return true;
         }
 
-        public override void Render(CommandBuffer cmd, ScriptableRenderContext context, FernPostProcessRenderPass.PostProcessRTHandles rtHandles, ref RenderingData renderingData, FernPostProcessInjectionPoint injectionPoint)
+        public override void Render(CommandBuffer cmd, ScriptableRenderContext context, FernCoreFeatureRenderPass.PostProcessRTHandles rtHandles, ref RenderingData renderingData, FernPostProcessInjectionPoint injectionPoint)
         {
             if(m_Material == null) return;
             CoreUtils.SetKeyword(cmd, "_EDGEDETECION", true);

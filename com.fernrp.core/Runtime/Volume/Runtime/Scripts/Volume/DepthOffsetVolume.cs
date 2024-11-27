@@ -17,7 +17,7 @@ namespace UnityEngine.Rendering.FernRenderPipeline
     }
 
     [FernPostProcess("Depth Offset", FernPostProcessInjectionPoint.BeforeOpaque)]
-    public class DepthOffsetRender : FernPostProcessRenderer
+    public class DepthOffsetRender : FernRPFeatureRenderer
     {
         private ProfilingSampler m_ProfilingSampler = new ProfilingSampler("DepthShadowPrepass");
 
@@ -57,7 +57,7 @@ namespace UnityEngine.Rendering.FernRenderPipeline
             return true;
         }
 
-        public override void Render(CommandBuffer cmd, ScriptableRenderContext context, FernPostProcessRenderPass.PostProcessRTHandles rtHandles, 
+        public override void Render(CommandBuffer cmd, ScriptableRenderContext context, FernCoreFeatureRenderPass.PostProcessRTHandles rtHandles, 
             ref RenderingData renderingData, FernPostProcessInjectionPoint injectionPoint)
         {
             

@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Experimental.Rendering.RenderGraphModule;
-namespace UnityEngine.Rendering.Universal
+using UnityEngine.Rendering.Universal;
+
+namespace UnityEngine.Rendering.FernRenderPipeline
 {
     internal class AmbientProbeUpdatePass : ScriptableRenderPass
     {
@@ -38,12 +40,10 @@ namespace UnityEngine.Rendering.Universal
         
         private static readonly int AmbientSkyCube = Shader.PropertyToID("_AmbientSkyCube");
 
-        public AmbientProbeUpdatePass(RenderPassEvent renderPassEvent, PostProcessData data)
+        public AmbientProbeUpdatePass(PostProcessData data)
         {
-            this.renderPassEvent = renderPassEvent;
             computeAmbientProbeCS = data.shaders.shConvolutionCS;
             computeAmbientProbeKernel = computeAmbientProbeCS.FindKernel("CSMain");
-
             
             // Compute buffer storing the resulting SH from diffuse convolution. L2 SH => 9 float per component.
             ambientProbeResult = new ComputeBuffer(27, 4);
