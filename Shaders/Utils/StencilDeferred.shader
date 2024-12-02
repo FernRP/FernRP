@@ -32,6 +32,7 @@ Shader "Hidden/Universal Render Pipeline/StencilDeferred"
     #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
     #include "Packages/com.unity.render-pipelines.universal/Shaders/Utils/Deferred.hlsl"
     #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
+    #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
     #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRendering.hlsl"
 
     struct Attributes
@@ -244,9 +245,12 @@ Shader "Hidden/Universal Render Pipeline/StencilDeferred"
 
         float2 screen_uv = (input.screenUV.xy / input.screenUV.z);
 
-#if defined(_FOVEATED_RENDERING_NON_UNIFORM_RASTER)
+#if defined(SUPPORTS_FOVEATED_RENDERING_NON_UNIFORM_RASTER)
         float2 undistorted_screen_uv = screen_uv;
-        screen_uv = input.positionCS.xy * _ScreenSize.zw;
+        UNITY_BRANCH if (_FOVEATED_RENDERING_NON_UNIFORM_RASTER)
+        {
+            screen_uv = input.positionCS.xy * _ScreenSize.zw;
+        }
 #endif
 
         half4 shadowMask = 1.0;
@@ -283,14 +287,17 @@ Shader "Hidden/Universal Render Pipeline/StencilDeferred"
             return half4(color, alpha); // Cannot discard because stencil must be updated.
         #endif
 
-        #if defined(_FOVEATED_RENDERING_NON_UNIFORM_RASTER)
-        input.positionCS.xy = undistorted_screen_uv * _ScreenSize.xy;
-        #endif
+#if defined(SUPPORTS_FOVEATED_RENDERING_NON_UNIFORM_RASTER)
+        UNITY_BRANCH if (_FOVEATED_RENDERING_NON_UNIFORM_RASTER)
+        {
+            input.positionCS.xy = undistorted_screen_uv * _ScreenSize.xy;
+        }
+#endif
 
         #if defined(USING_STEREO_MATRICES)
-            int eyeIndex = unity_StereoEyeIndex;
+        int eyeIndex = unity_StereoEyeIndex;
         #else
-            int eyeIndex = 0;
+        int eyeIndex = 0;
         #endif
         float4 posWS = mul(_ScreenToWorld[eyeIndex], float4(input.positionCS.xy, d, 1.0));
         posWS.xyz *= rcp(posWS.w);
@@ -318,7 +325,6 @@ Shader "Hidden/Universal Render Pipeline/StencilDeferred"
 
         InputData inputData = InputDataFromGbufferAndWorldPosition(gbuffer2, posWS.xyz);
 
-
         #if defined(_LIT)
             #if SHADER_API_MOBILE || SHADER_API_SWITCH
             // Specular highlights are still silenced by setting specular to 0.0 during gbuffer pass and GPU timing is still reduced.
@@ -328,13 +334,6 @@ Shader "Hidden/Universal Render Pipeline/StencilDeferred"
             #endif
             BRDFData brdfData = BRDFDataFromGbuffer(gbuffer0, gbuffer1, gbuffer2);
             color = LightingPhysicallyBased(brdfData, unityLight, inputData.normalWS, inputData.viewDirectionWS, materialSpecularHighlightsOff);
-
-            #if _RSM
-                float3 rsm = SampleRSM(posWS, inputData.normalWS);
-                color += brdfData.diffuse * rsm;
-            #endif
-            
-
         #elif defined(_SIMPLELIT)
             SurfaceData surfaceData = SurfaceDataFromGbuffer(gbuffer0, gbuffer1, gbuffer2, kLightingSimpleLit);
             half3 attenuatedLightColor = unityLight.color * (unityLight.distanceAttenuation * unityLight.shadowAttenuation);
@@ -346,8 +345,7 @@ Shader "Hidden/Universal Render Pipeline/StencilDeferred"
             color = diffuseColor * surfaceData.albedo + specularColor;
         #endif
 
-
-        return half4(color, alpha); 
+        return half4(color, alpha);
     }
 
     half4 FragFog(Varyings input) : SV_Target
@@ -456,22 +454,15 @@ Shader "Hidden/Universal Render Pipeline/StencilDeferred"
             #pragma multi_compile _POINT _SPOT
             #pragma multi_compile_fragment _LIT
             #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
-            #pragma multi_compile_fragment _ _SHADOWS_SOFT
+            #pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
             #pragma multi_compile_fragment _ LIGHTMAP_SHADOW_MIXING
             #pragma multi_compile_fragment _ SHADOWS_SHADOWMASK
             #pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT
             #pragma multi_compile_fragment _ _DEFERRED_MIXED_LIGHTING
             #pragma multi_compile_fragment _ _SCREEN_SPACE_OCCLUSION
-            #pragma multi_compile_fragment _ _LIGHT_LAYERS
             #pragma multi_compile_fragment _ _RENDER_PASS_ENABLED
             #pragma multi_compile_fragment _ _LIGHT_COOKIES
-            #pragma multi_compile_fragment _ _FOVEATED_RENDERING_NON_UNIFORM_RASTER
-
-            // FernRP Keyword
-            #pragma multi_compile_fragment _ _RSM
-            
-            // Foveated rendering currently not supported in dxc on metal
-            #pragma never_use_dxc metal
+            #pragma multi_compile _ _LIGHT_LAYERS
 
             #pragma vertex Vertex
             #pragma fragment DeferredShading
@@ -510,18 +501,15 @@ Shader "Hidden/Universal Render Pipeline/StencilDeferred"
             #pragma multi_compile _POINT _SPOT
             #pragma multi_compile_fragment _SIMPLELIT
             #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
-            #pragma multi_compile_fragment _ _SHADOWS_SOFT
+            #pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
             #pragma multi_compile_fragment _ LIGHTMAP_SHADOW_MIXING
             #pragma multi_compile_fragment _ SHADOWS_SHADOWMASK
             #pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT
             #pragma multi_compile_fragment _ _DEFERRED_MIXED_LIGHTING
             #pragma multi_compile_fragment _ _SCREEN_SPACE_OCCLUSION
-            #pragma multi_compile_fragment _ _LIGHT_LAYERS
             #pragma multi_compile_fragment _ _RENDER_PASS_ENABLED
             #pragma multi_compile_fragment _ _LIGHT_COOKIES
-            #pragma multi_compile_fragment _ _FOVEATED_RENDERING_NON_UNIFORM_RASTER
-            // Foveated rendering currently not supported in dxc on metal
-            #pragma never_use_dxc metal
+            #pragma multi_compile _ _LIGHT_LAYERS
 
             #pragma vertex Vertex
             #pragma fragment DeferredShading
@@ -562,22 +550,15 @@ Shader "Hidden/Universal Render Pipeline/StencilDeferred"
             #pragma multi_compile_fragment _ _DEFERRED_MAIN_LIGHT
             #pragma multi_compile_fragment _ _DEFERRED_FIRST_LIGHT
             #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
-            #pragma multi_compile_fragment _ _SHADOWS_SOFT
+            #pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
             #pragma multi_compile_fragment _ LIGHTMAP_SHADOW_MIXING
             #pragma multi_compile_fragment _ SHADOWS_SHADOWMASK
             #pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT
             #pragma multi_compile_fragment _ _DEFERRED_MIXED_LIGHTING
             #pragma multi_compile_fragment _ _SCREEN_SPACE_OCCLUSION
-            #pragma multi_compile_fragment _ _LIGHT_LAYERS
             #pragma multi_compile_fragment _ _RENDER_PASS_ENABLED
             #pragma multi_compile_fragment _ _LIGHT_COOKIES
-            #pragma multi_compile_fragment _ _FOVEATED_RENDERING_NON_UNIFORM_RASTER
-
-            // FernRP Keyword
-            #pragma multi_compile_fragment _ _RSM
-            
-            // Foveated rendering currently not supported in dxc on metal
-            #pragma never_use_dxc metal
+            #pragma multi_compile _ _LIGHT_LAYERS
 
             #pragma vertex Vertex
             #pragma fragment DeferredShading
@@ -614,22 +595,19 @@ Shader "Hidden/Universal Render Pipeline/StencilDeferred"
 
             #pragma multi_compile _DIRECTIONAL
             #pragma multi_compile_fragment _SIMPLELIT
+            #pragma multi_compile _ _LIGHT_LAYERS
             #pragma multi_compile_fragment _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
             #pragma multi_compile_fragment _ _DEFERRED_MAIN_LIGHT
             #pragma multi_compile_fragment _ _DEFERRED_FIRST_LIGHT
             #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
-            #pragma multi_compile_fragment _ _SHADOWS_SOFT
+            #pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
             #pragma multi_compile_fragment _ LIGHTMAP_SHADOW_MIXING
             #pragma multi_compile_fragment _ SHADOWS_SHADOWMASK
             #pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT
             #pragma multi_compile_fragment _ _DEFERRED_MIXED_LIGHTING
             #pragma multi_compile_fragment _ _SCREEN_SPACE_OCCLUSION
-            #pragma multi_compile_fragment _ _LIGHT_LAYERS
             #pragma multi_compile_fragment _ _RENDER_PASS_ENABLED
             #pragma multi_compile_fragment _ _LIGHT_COOKIES
-            #pragma multi_compile_fragment _ _FOVEATED_RENDERING_NON_UNIFORM_RASTER
-            // Foveated rendering currently not supported in dxc on metal
-            #pragma never_use_dxc metal
 
             #pragma vertex Vertex
             #pragma fragment DeferredShading

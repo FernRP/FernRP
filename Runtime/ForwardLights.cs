@@ -62,7 +62,6 @@ namespace UnityEngine.Rendering.Universal.Internal
 
         LightCookieManager m_LightCookieManager;
         ReflectionProbeManager m_ReflectionProbeManager;
-        FernReflectionProbeManager m_FernReflectionProbeManager;
         int m_WordsPerTile;
         float m_ZBinScale;
         float m_ZBinOffset;
@@ -137,8 +136,6 @@ namespace UnityEngine.Rendering.Universal.Internal
                 CreateForwardPlusBuffers();
                 m_ReflectionProbeManager = ReflectionProbeManager.Create();
             }
-
-            m_FernReflectionProbeManager = FernReflectionProbeManager.Create();
 
             m_LightCookieManager = initParams.lightCookieManager;
         }
@@ -237,26 +234,7 @@ namespace UnityEngine.Rendering.Universal.Internal
 
                 var worldToViews = new Fixed2<float4x4>(cameraData.GetViewMatrix(0), cameraData.GetViewMatrix(math.min(1, viewCount - 1)));
                 var viewToClips = new Fixed2<float4x4>(cameraData.GetProjectionMatrix(0), cameraData.GetProjectionMatrix(math.min(1, viewCount - 1)));
-
-                // Should probe come after otherProbe?
-                static bool IsProbeGreater(VisibleReflectionProbe probe, VisibleReflectionProbe otherProbe)
-                {
-                    return probe.importance < otherProbe.importance || probe.bounds.extents.sqrMagnitude > otherProbe.bounds.extents.sqrMagnitude;
-                }
-
-                for (var i = 1; i < reflectionProbeCount; i++)
-                {
-                    var probe = reflectionProbes[i];
-                    var j = i - 1;
-                    while (j >= 0 && IsProbeGreater(reflectionProbes[j], probe))
-                    {
-                        reflectionProbes[j + 1] = reflectionProbes[j];
-                        j--;
-                    }
-
-                    reflectionProbes[j + 1] = probe;
-                }
-
+                
                 var minMaxZs = new NativeArray<float2>(itemsPerTile * viewCount, Allocator.TempJob);
 
                 var lightMinMaxZJob = new LightMinMaxZJob
@@ -373,9 +351,6 @@ namespace UnityEngine.Rendering.Universal.Internal
                     cmd.SetGlobalVector("_FPParams1", math.float4(renderingData.cameraData.pixelRect.size / m_ActualTileWidth, m_TileResolution.x, m_WordsPerTile));
                     cmd.SetGlobalVector("_FPParams2", math.float4(m_BinCount, m_TileResolution.x * m_TileResolution.y, 0, 0));
                 }
-                
-                // Fern RP Ext
-                m_FernReflectionProbeManager.UpdateGpuData(cmd, ref renderingData);
 
                 SetupShaderLightConstants(cmd, ref renderingData);
 
@@ -421,7 +396,7 @@ namespace UnityEngine.Rendering.Universal.Internal
                 }
 
                 bool lightLayers = renderingData.lightData.supportsLightLayers;
-                CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.LightLayers, lightLayers);
+                CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.LightLayers, lightLayers && !CoreUtils.IsSceneLightingDisabled(renderingData.cameraData.camera));
 
                 if (m_LightCookieManager != null)
                 {

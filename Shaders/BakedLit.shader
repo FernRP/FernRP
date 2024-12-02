@@ -75,6 +75,7 @@ Shader "Universal Render Pipeline/Baked Lit"
             // Universal Pipeline keywords
             #pragma multi_compile_fragment _ _SCREEN_SPACE_OCCLUSION
             #pragma multi_compile_fragment _ _DBUFFER_MRT1 _DBUFFER_MRT2 _DBUFFER_MRT3
+            #pragma multi_compile _ EVALUATE_SH_MIXED EVALUATE_SH_VERTEX
             #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/RenderingLayers.hlsl"
 
             // -------------------------------------
@@ -120,7 +121,7 @@ Shader "Universal Render Pipeline/Baked Lit"
 
             // -------------------------------------
             // Material Keywords
-            #pragma shader_feature_local_fragment _ALPHATEST_ON
+            #pragma shader_feature_local _ALPHATEST_ON
 
             // -------------------------------------
             // Unity defined keywords

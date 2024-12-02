@@ -62,10 +62,23 @@ namespace UnityEngine.Rendering.Universal.Internal
             m_Source = colorHandle;
         }
 
-        static void SetupHDROutput(Material material, HDROutputUtils.Operation hdrOperation, Vector4 hdrOutputParameters)
+        static void SetupHDROutput(ColorGamut hdrDisplayColorGamut, Material material, HDROutputUtils.Operation hdrOperation, Vector4 hdrOutputParameters)
         {
             material.SetVector(ShaderPropertyId.hdrOutputLuminanceParams, hdrOutputParameters);
-            HDROutputUtils.ConfigureHDROutput(material, HDROutputSettings.main.displayColorGamut, hdrOperation);
+            HDROutputUtils.ConfigureHDROutput(material, hdrDisplayColorGamut, hdrOperation);
+        }
+
+        /// <inheritdoc/>
+        public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
+        {
+            ref CameraData cameraData = ref renderingData.cameraData;
+            DebugHandler debugHandler = GetActiveDebugHandler(ref renderingData);
+            bool resolveToDebugScreen = debugHandler != null && debugHandler.WriteToDebugScreenTexture(ref cameraData);
+            
+            if (resolveToDebugScreen)
+            {
+                ConfigureTarget(debugHandler.DebugScreenColorHandle, debugHandler.DebugScreenDepthHandle);
+            }
         }
 
         /// <inheritdoc/>
@@ -111,7 +124,7 @@ namespace UnityEngine.Rendering.Universal.Internal
                     Tonemapping tonemapping = stack.GetComponent<Tonemapping>();
 
                     Vector4 hdrOutputLuminanceParams;
-                    UniversalRenderPipeline.GetHDROutputLuminanceParameters(tonemapping, out hdrOutputLuminanceParams);
+                    UniversalRenderPipeline.GetHDROutputLuminanceParameters(cameraData.hdrDisplayInformation, cameraData.hdrDisplayColorGamut, tonemapping, out hdrOutputLuminanceParams);
                     
                     HDROutputUtils.Operation hdrOperation = HDROutputUtils.Operation.None;
                     // If the HDRDebugView is on, we don't want the encoding
@@ -121,12 +134,16 @@ namespace UnityEngine.Rendering.Universal.Internal
                     if (!cameraData.postProcessEnabled)
                         hdrOperation |= HDROutputUtils.Operation.ColorConversion;
 
-                    SetupHDROutput(blitMaterial, hdrOperation, hdrOutputLuminanceParams);
+                    SetupHDROutput(cameraData.hdrDisplayColorGamut, blitMaterial, hdrOperation, hdrOutputLuminanceParams);
                 }
 
                 if (resolveToDebugScreen)
                 {
-                    debugHandler.BlitTextureToDebugScreenTexture(cmd, m_Source, blitMaterial, m_Source.rt?.filterMode == FilterMode.Bilinear ? 1 : 0);
+                    // Blit to the debugger texture instead of the camera target
+                    int shaderPassIndex = m_Source.rt?.filterMode == FilterMode.Bilinear ? 1 : 0;
+                    Vector2 viewportScale = m_Source.useScaling ? new Vector2(m_Source.rtHandleProperties.rtHandleScale.x, m_Source.rtHandleProperties.rtHandleScale.y) : Vector2.one;
+                    Blitter.BlitTexture(cmd, m_Source, viewportScale, blitMaterial, shaderPassIndex);
+
                     cameraData.renderer.ConfigureCameraTarget(debugHandler.DebugScreenColorHandle, debugHandler.DebugScreenDepthHandle);
                 }
                 else
@@ -187,7 +204,8 @@ namespace UnityEngine.Rendering.Universal.Internal
                 {
                     VolumeStack stack = VolumeManager.instance.stack;
                     Tonemapping tonemapping = stack.GetComponent<Tonemapping>();
-                    UniversalRenderPipeline.GetHDROutputLuminanceParameters(tonemapping, out passData.hdrOutputLuminanceParams);
+                    ref CameraData cameraData = ref renderingData.cameraData;
+                    UniversalRenderPipeline.GetHDROutputLuminanceParameters(cameraData.hdrDisplayInformation, cameraData.hdrDisplayColorGamut, tonemapping, out passData.hdrOutputLuminanceParams);
 
                     builder.ReadTexture(overlayUITexture);
                 }
@@ -211,7 +229,7 @@ namespace UnityEngine.Rendering.Universal.Internal
                         if (!data.renderingData.cameraData.postProcessEnabled)
                             hdrOperation |= HDROutputUtils.Operation.ColorConversion;
 
-                        SetupHDROutput(data.blitMaterial, hdrOperation, data.hdrOutputLuminanceParams);
+                        SetupHDROutput(data.renderingData.cameraData.hdrDisplayColorGamut, data.blitMaterial, hdrOperation, data.hdrOutputLuminanceParams);
                     }
 
                     ExecutePass(ref data.renderingData, data.blitMaterial, data.destination, data.source);

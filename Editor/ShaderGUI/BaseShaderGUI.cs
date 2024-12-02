@@ -244,7 +244,7 @@ namespace UnityEditor
             /// The text and tooltip for the alpha clipping GUI.
             /// </summary>
             public static readonly GUIContent alphaClipText = EditorGUIUtility.TrTextContent("Alpha Clipping",
-                "Makes your Material act like a Cutout shader. Use this to create a transparent effect with hard edges between opaque and transparent areas.");
+                "Makes your Material act like a Cutout shader. Use this to create a transparent effect with hard edges between opaque and transparent areas. Avoid using when Alpha is constant for the entire material as enabling in this case could introduce visual artifacts and will add an unnecessary performance cost when used with MSAA (due to AlphaToMask).");
 
             /// <summary>
             /// The text and tooltip for the alpha clipping threshold GUI.
@@ -931,16 +931,11 @@ namespace UnityEditor
                     SetMaterialSrcDstBlendProperties(material, UnityEngine.Rendering.BlendMode.One, UnityEngine.Rendering.BlendMode.Zero);
                     zwrite = true;
                     material.DisableKeyword(ShaderKeywordStrings._ALPHAPREMULTIPLY_ON);
-                    material.DisableKeyword(ShaderKeywordStrings._SURFACE_TYPE_TRANSPARENT);
                     material.DisableKeyword(ShaderKeywordStrings._ALPHAMODULATE_ON);
                 }
                 else // SurfaceType Transparent
                 {
                     BlendMode blendMode = (BlendMode)material.GetFloat(Property.BlendMode);
-
-                    // Clear blend keyword state.
-                    material.DisableKeyword(ShaderKeywordStrings._ALPHAPREMULTIPLY_ON);
-                    material.DisableKeyword(ShaderKeywordStrings._ALPHAMODULATE_ON);
 
                     var srcBlendRGB = UnityEngine.Rendering.BlendMode.One;
                     var dstBlendRGB = UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha;
@@ -987,8 +982,6 @@ namespace UnityEditor
                             dstBlendRGB = UnityEngine.Rendering.BlendMode.Zero;
                             srcBlendA = UnityEngine.Rendering.BlendMode.Zero;
                             dstBlendA = UnityEngine.Rendering.BlendMode.One;
-
-                            material.EnableKeyword(ShaderKeywordStrings._ALPHAMODULATE_ON);
                             break;
                     }
 
@@ -1001,7 +994,6 @@ namespace UnityEditor
                     if (preserveSpecular)
                     {
                         srcBlendRGB = UnityEngine.Rendering.BlendMode.One;
-                        material.EnableKeyword(ShaderKeywordStrings._ALPHAPREMULTIPLY_ON);
                     }
 
                     // When doing off-screen transparency accumulation, we change blend factors as described here: https://developer.nvidia.com/gpugems/GPUGems3/gpugems3_ch23.html
@@ -1012,10 +1004,12 @@ namespace UnityEditor
                     SetMaterialSrcDstBlendProperties(material, srcBlendRGB, dstBlendRGB, // RGB
                         srcBlendA, dstBlendA); // Alpha
 
+                    CoreUtils.SetKeyword(material, ShaderKeywordStrings._ALPHAPREMULTIPLY_ON, preserveSpecular);
+                    CoreUtils.SetKeyword(material, ShaderKeywordStrings._ALPHAMODULATE_ON, blendMode == BlendMode.Multiply);
+
                     // General Transparent Material Settings
                     material.SetOverrideTag("RenderType", "Transparent");
                     zwrite = false;
-                    material.EnableKeyword(ShaderKeywordStrings._SURFACE_TYPE_TRANSPARENT);
                     renderQueue = (int)RenderQueue.Transparent;
                 }
 

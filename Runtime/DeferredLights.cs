@@ -147,7 +147,7 @@ namespace UnityEngine.Rendering.Universal.Internal
             else if (index == GBufferSpecularMetallicIndex) // sRGB specular, [unused]
                 return GraphicsFormat.R8G8B8A8_UNorm;
             else if (index == GBufferNormalSmoothnessIndex)
-                return this.AccurateGbufferNormals ? GraphicsFormat.R8G8B8A8_UNorm : GraphicsFormat.R8G8B8A8_SNorm; // normal normal normal packedSmoothness
+                return AccurateGbufferNormals ? GraphicsFormat.R8G8B8A8_UNorm : DepthNormalOnlyPass.GetGraphicsFormat(); // normal normal normal packedSmoothness
             else if (index == GBufferLightingIndex) // Emissive+baked: Most likely B10G11R11_UFloatPack32 or R16G16B16A16_SFloat
                 return GraphicsFormat.None;
             else if (index == GbufferDepthIndex) // Render-pass on mobiles: reading back real depth-buffer is either inefficient (Arm Vulkan) or impossible (Metal).
@@ -180,13 +180,9 @@ namespace UnityEngine.Rendering.Universal.Internal
         internal bool HasRenderingLayerPrepass { get; set; }
         // This is an overlay camera being rendered.
         internal bool IsOverlay { get; set; }
-        // Not all platforms support R8G8B8A8_SNorm, so we need to check for the support and force accurate GBuffer normals and relevant shader variants
-        private bool m_AccurateGbufferNormals;
-        internal bool AccurateGbufferNormals
-        {
-            get { return m_AccurateGbufferNormals; }
-            set { m_AccurateGbufferNormals = value || !RenderingUtils.SupportsGraphicsFormat(GraphicsFormat.R8G8B8A8_SNorm, FormatUsage.Render); }
-        }
+
+        internal bool AccurateGbufferNormals { get; set; }
+
         // We browse all visible lights and found the mixed lighting setup every frame.
         internal MixedLightingSetup MixedLightingSetup { get; set; }
         //
@@ -313,7 +309,7 @@ namespace UnityEngine.Rendering.Universal.Internal
                     CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.MixedLightingSubtractive, isSubtractive); // Backward compatibility
                     // This should be moved to a more global scope when framebuffer fetch is introduced to more passes
                     CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.RenderPassEnabled, this.UseRenderPass && renderingData.cameraData.cameraType == CameraType.Game);
-                    CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.LightLayers, UseLightLayers);
+                    CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.LightLayers, UseLightLayers && !CoreUtils.IsSceneLightingDisabled(camera));
 
                     RenderingLayerUtils.SetupProperties(cmd, RenderingLayerMaskSize);
                 }
@@ -455,9 +451,10 @@ namespace UnityEngine.Rendering.Universal.Internal
             this.GbufferAttachments[this.GBufferLightingIndex] = colorAttachment;
             this.DepthAttachment = depthAttachment;
 
-            if (this.DeferredInputAttachments == null && this.UseRenderPass && this.GbufferAttachments.Length >= 3)
+            var inputCount = 4 + (UseShadowMask ?  1 : 0);
+            if (this.DeferredInputAttachments == null && this.UseRenderPass && this.GbufferAttachments.Length >= 3 ||
+                (this.DeferredInputAttachments != null && inputCount != this.DeferredInputAttachments.Length))
             {
-                var inputCount = 4 + (UseShadowMask ?  1 : 0);
                 this.DeferredInputAttachments = new RTHandle[inputCount];
                 this.DeferredInputIsTransient = new bool[inputCount];
                 int i, j = 0;
@@ -600,7 +597,7 @@ namespace UnityEngine.Rendering.Universal.Internal
 
             // Restore shader keywords
             CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.AdditionalLightShadows, renderingData.shadowData.isKeywordAdditionalLightShadowsEnabled);
-            CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.SoftShadows, renderingData.shadowData.isKeywordSoftShadowsEnabled);
+            ShadowUtils.SetSoftShadowQualityShaderKeywords(cmd, ref renderingData.shadowData);
             CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.LightCookies, m_LightCookieManager != null && m_LightCookieManager.IsKeywordLightCookieEnabled);
         }
 
@@ -805,7 +802,7 @@ namespace UnityEngine.Rendering.Universal.Internal
                 var additionalLightData = light.GetUniversalAdditionalLightData();
                 uint lightLayerMask = RenderingLayerUtils.ToValidRenderingLayers(additionalLightData.renderingLayers);
 
-                // Setup shadow paramters:
+                // Setup shadow parameters:
                 // - for the main light, they have already been setup globally, so nothing to do.
                 // - for other directional lights, it is actually not supported by URP, but the code would look like this.
                 bool hasDeferredShadows;
@@ -822,7 +819,8 @@ namespace UnityEngine.Rendering.Universal.Internal
                 SetAdditionalLightsShadowsKeyword(ref cmd, ref renderingData, hasDeferredShadows);
 
                 bool hasSoftShadow = hasDeferredShadows && renderingData.shadowData.supportsSoftShadows && light.shadows == LightShadows.Soft;
-                CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.SoftShadows, hasSoftShadow);
+
+                ShadowUtils.SetPerLightSoftShadowKeyword(cmd, hasSoftShadow);
                 CoreUtils.SetKeyword(cmd, ShaderKeywordStrings._DEFERRED_FIRST_LIGHT, isFirstLight); // First directional light applies SSAO
                 CoreUtils.SetKeyword(cmd, ShaderKeywordStrings._DEFERRED_MAIN_LIGHT, visLightIndex == mainLightIndex); // main directional light use different uniform constants from additional directional lights
 
@@ -881,7 +879,7 @@ namespace UnityEngine.Rendering.Universal.Internal
                 SetAdditionalLightsShadowsKeyword(ref cmd, ref renderingData, hasDeferredLightShadows);
 
                 bool hasSoftShadow = hasDeferredLightShadows && renderingData.shadowData.supportsSoftShadows && light.shadows == LightShadows.Soft;
-                CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.SoftShadows, hasSoftShadow);
+                ShadowUtils.SetPerLightSoftShadowKeyword(cmd, hasSoftShadow);
 
                 if (m_LightCookieManager != null)
                 {
@@ -948,7 +946,7 @@ namespace UnityEngine.Rendering.Universal.Internal
                 SetAdditionalLightsShadowsKeyword(ref cmd, ref renderingData, hasDeferredLightShadows);
 
                 bool hasSoftShadow = hasDeferredLightShadows && renderingData.shadowData.supportsSoftShadows && light.shadows == LightShadows.Soft;
-                CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.SoftShadows, hasSoftShadow);
+                ShadowUtils.SetPerLightSoftShadowKeyword(cmd, hasSoftShadow);
 
                 if (m_LightCookieManager != null)
                 {

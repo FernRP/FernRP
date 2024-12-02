@@ -234,6 +234,12 @@ namespace UnityEngine.Rendering.Universal
                     }
                     XRBuiltinShaderConstants.SetBuiltinShaderConstants(cmd);
                 }
+                else
+                {
+                    // Update multipass worldSpace camera pos
+                    Vector3 worldSpaceCameraPos = Matrix4x4.Inverse(GetViewMatrix(0)).GetColumn(3);
+                    cmd.SetGlobalVector(ShaderPropertyId.worldSpaceCameraPos, worldSpaceCameraPos);
+                }
             }
 #endif
         }
@@ -398,8 +404,9 @@ namespace UnityEngine.Rendering.Universal
             get
             {
 #if ENABLE_VR && ENABLE_XR_MODULE
+                // For some XR platforms we need to encode in SRGB but can't use a _SRGB format texture, only required for 8bit per channel 32 bit formats.
                 if (xr.enabled)
-                    return !xr.renderTargetDesc.sRGB && (QualitySettings.activeColorSpace == ColorSpace.Linear);
+                    return !xr.renderTargetDesc.sRGB && (xr.renderTargetDesc.graphicsFormat == GraphicsFormat.R8G8B8A8_UNorm || xr.renderTargetDesc.graphicsFormat == GraphicsFormat.B8G8R8A8_UNorm) && (QualitySettings.activeColorSpace == ColorSpace.Linear);
 #endif
 
                 return targetTexture == null && Display.main.requiresSrgbBlitToBackbuffer;
@@ -423,7 +430,74 @@ namespace UnityEngine.Rendering.Universal
         /// <summary>
         /// True if the Camera should output to an HDR display.
         /// </summary>
-        public bool isHDROutputActive => UniversalRenderPipeline.HDROutputIsActive() && allowHDROutput && resolveToScreen;
+        public bool isHDROutputActive
+        {
+            get
+            {
+                bool hdrDisplayOutputActive = UniversalRenderPipeline.HDROutputForMainDisplayIsActive();
+#if ENABLE_VR && ENABLE_XR_MODULE
+                // If we are rendering to xr then we need to look at the XR Display rather than the main non-xr display.
+                if (xr.enabled)
+                    hdrDisplayOutputActive = xr.isHDRDisplayOutputActive;
+#endif
+                return hdrDisplayOutputActive && allowHDROutput && resolveToScreen;
+            }
+        }
+
+        /// <summary>
+        /// True if the last camera in the stack outputs to an HDR screen
+        /// </summary>
+        internal bool stackLastCameraOutputToHDR;
+
+        /// <summary>
+        /// HDR Display information about the current display this camera is rendering to.
+        /// </summary>
+        public HDROutputUtils.HDRDisplayInformation hdrDisplayInformation
+        {
+            get
+            {
+                HDROutputUtils.HDRDisplayInformation displayInformation;
+#if ENABLE_VR && ENABLE_XR_MODULE
+                // If we are rendering to xr then we need to look at the XR Display rather than the main non-xr display.
+                if (xr.enabled)
+                {
+                    displayInformation = xr.hdrDisplayOutputInformation;
+                }
+                else
+#endif
+                {
+                    HDROutputSettings displaySettings = HDROutputSettings.main;
+                    displayInformation = new HDROutputUtils.HDRDisplayInformation(displaySettings.maxFullFrameToneMapLuminance,
+                        displaySettings.maxToneMapLuminance,
+                        displaySettings.minToneMapLuminance,
+                        displaySettings.paperWhiteNits);
+                }
+
+                return displayInformation;
+            }
+        }
+
+        /// <summary>
+        /// HDR Display Color Gamut
+        /// </summary>
+        public ColorGamut hdrDisplayColorGamut
+        {
+            get
+            {
+#if ENABLE_VR && ENABLE_XR_MODULE
+                // If we are rendering to xr then we need to look at the XR Display rather than the main non-xr display.
+                if (xr.enabled)
+                {
+                    return xr.hdrDisplayOutputColorGamut;
+                }
+                else
+#endif
+                {
+                    HDROutputSettings displaySettings = HDROutputSettings.main;
+                    return displaySettings.displayColorGamut;
+                }
+            }
+        }
 
         /// <summary>
         /// True if the Camera should render overlay UI.
@@ -446,7 +520,7 @@ namespace UnityEngine.Rendering.Universal
             if (!SystemInfo.graphicsUVStartsAtTop)
                 return false;
 
-            if (cameraType == CameraType.SceneView)
+            if (cameraType == CameraType.SceneView || cameraType == CameraType.Preview)
                 return true;
 
             var handleID = new RenderTargetIdentifier(handle.nameID, 0, CubemapFace.Unknown, 0);
@@ -569,6 +643,11 @@ namespace UnityEngine.Rendering.Universal
         /// True if post-processing is enabled for this camera.
         /// </summary>
         public bool postProcessEnabled;
+
+        /// <summary>
+        /// True if post-processing is enabled for any camera in this camera's stack.
+        /// </summary>
+        internal bool stackAnyPostProcessingEnabled;
 
         /// <summary>
         /// Provides set actions to the renderer to be triggered at the end of the render loop for camera capture.
@@ -918,11 +997,6 @@ namespace UnityEngine.Rendering.Universal
         public static readonly int overlayUITexture = Shader.PropertyToID("_OverlayUITexture");
         public static readonly int hdrOutputLuminanceParams = Shader.PropertyToID("_HDROutputLuminanceParams");
         public static readonly int hdrOutputGradingParams = Shader.PropertyToID("_HDROutputGradingParams");
-        
-        // FernRP
-        public static readonly int rsmSampleCount = Shader.PropertyToID("_RSMSampleCount");
-        public static readonly int rsmIntensity = Shader.PropertyToID("_RSMIntensity");
-        public static readonly int inverseLightViewProjectionMatrix = Shader.PropertyToID("_InverseLightViewProjectionMatrix");
     }
 
     /// <summary>
@@ -945,7 +1019,7 @@ namespace UnityEngine.Rendering.Universal
         /// True if fast approximation functions are used when converting between the sRGB and Linear color spaces, false otherwise.
         /// </summary>
         public bool useFastSRGBLinearConversion;
-        
+
         /// <summary>
         /// Returns true if Data Driven Lens Flare are supported by this asset, false otherwise.
         /// </summary>
@@ -989,6 +1063,15 @@ namespace UnityEngine.Rendering.Universal
 
         /// <summary> Keyword used for soft shadows. </summary>
         public const string SoftShadows = "_SHADOWS_SOFT";
+
+        /// <summary> Keyword used for low quality soft shadows. </summary>
+        public const string SoftShadowsLow = "_SHADOWS_SOFT_LOW";
+
+        /// <summary> Keyword used for medium quality soft shadows. </summary>
+        public const string SoftShadowsMedium = "_SHADOWS_SOFT_MEDIUM";
+
+        /// <summary> Keyword used for high quality soft shadows. </summary>
+        public const string SoftShadowsHigh = "_SHADOWS_SOFT_HIGH";
 
         /// <summary> Keyword used for Mixed Lights in Subtractive lighting mode. </summary>
         public const string MixedLightingSubtractive = "_MIXED_LIGHTING_SUBTRACTIVE"; // Backward compatibility
@@ -1122,8 +1205,8 @@ namespace UnityEngine.Rendering.Universal
         /// <summary> Keyword used for Gamma 2.0. </summary>
         public const string Gamma20 = "_GAMMA_20";
 
-        /// <summary> Keyword used for Gamma 2.0 with HDR_INPUT. </summary>
-        public const string Gamma20AndHDRInput = "_GAMMA_20_AND_HDR_INPUT";
+        /// <summary> Keyword used for Fast Approximate Anti-aliasing (FXAA) with Gamma 2.0 encoding. </summary>
+        public const string FxaaAndGamma20 = "_FXAA_AND_GAMMA_20";
 
         /// <summary> Keyword used for high quality sampling for Depth Of Field. </summary>
         public const string HighQualitySampling = "_HIGH_QUALITY_SAMPLING";
@@ -1241,9 +1324,6 @@ namespace UnityEngine.Rendering.Universal
 
         /// <summary> Keyword used for Drawing procedurally.</summary>
         public const string UseDrawProcedural = "_USE_DRAW_PROCEDURAL";
-        
-        //=================== FernRP Add ===================//
-        public const string RSM = "_RSM";
     }
 
     public sealed partial class UniversalRenderPipeline
@@ -1384,19 +1464,6 @@ namespace UnityEngine.Rendering.Universal
             desc.enableRandomWrite = false;
             desc.bindMS = false;
             desc.useDynamicScale = camera.allowDynamicResolution;
-
-            // The way RenderTextures handle MSAA fallback when an unsupported sample count of 2 is requested (falling back to numSamples = 1), differs fom the way
-            // the fallback is handled when setting up the Vulkan swapchain (rounding up numSamples to 4, if supported). This caused an issue on Mali GPUs which don't support
-            // 2x MSAA.
-            // The following code makes sure that on Vulkan the MSAA unsupported fallback behaviour is consistent between RenderTextures and Swapchain.
-            // TODO: we should review how all backends handle MSAA fallbacks and move these implementation details in engine code.
-            if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Vulkan)
-            {
-                // if the requested number of samples is 2, and the supported value is 1x, it means that 2x is unsupported on this GPU.
-                // Then we bump up the requested value to 4.
-                if (desc.msaaSamples == 2 && SystemInfo.GetRenderTextureSupportedMSAASampleCount(desc) == 1)
-                    desc.msaaSamples = 4;
-            }
 
             // check that the requested MSAA samples count is supported by the current platform. If it's not supported,
             // replace the requested desc.msaaSamples value with the actual value the engine falls back to
