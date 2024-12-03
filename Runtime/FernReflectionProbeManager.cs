@@ -2,8 +2,9 @@ using System;
 using System.Collections.Generic;
 using Unity.Mathematics;
 using UnityEngine.Experimental.Rendering;
+using UnityEngine.Rendering.Universal;
 
-namespace UnityEngine.Rendering.Universal
+namespace UnityEngine.Rendering.FernRenderPipeline
 {
     struct FernReflectionProbeManager : IDisposable
     {

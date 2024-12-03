@@ -1,9 +1,9 @@
 {
-  "name": "com.unity.render-pipelines.universal",
-  "description": "Fern RP is based on the Universal Render Pipeline (URP).Fern RP provides additional rendering features and shading models on top of the URP, allowing you to quickly and easily create optimized graphics on a range of platforms from cell phones to high-end consoles and PCs.",
-  "version": "14.0.8",
+  "name": "com.fern.renderpipeline",
+  "description": "",
+  "version": "1.1.0",
   "unity": "2022.3",
-  "displayName": "Fern RP",
+  "displayName": "Fern Render Pipeline",
   "dependencies": {
     "com.unity.mathematics": "1.2.1",
     "com.unity.burst": "1.8.4",
@@ -12,7 +12,7 @@
     "com.jasonma.lwgui": "1.14.6"
   },
   "author": {
-    "name": "Fern",
+    "name": "DJ-Huang",
     "url": "https://github.com/FernRP"
   },
   "keywords": [
@@ -24,10 +24,6 @@
     "pipeline"
   ],
   "samples": [
-    {
-      "displayName": "URP Package Samples",
-      "description": "Collection of scenes showcasing different features of the Universal Render Pipeline.",
-      "path": "Samples~/URPPackageSamples"
-    }
+    
   ]
 }
