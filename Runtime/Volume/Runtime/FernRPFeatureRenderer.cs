@@ -97,7 +97,7 @@ namespace UnityEngine.Rendering.FernRenderPipeline
     /// Use this attribute to mark classes that can be used as a custom post-processing renderer
     /// </summary>
     [System.AttributeUsage(System.AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
-    public sealed class FernPostProcessAttribute : System.Attribute {
+    public sealed class FernRenderAttribute : System.Attribute {
 
         // Name of the effect in the custom post-processing render feature editor
         readonly string name;
@@ -128,7 +128,7 @@ namespace UnityEngine.Rendering.FernRenderPipeline
         /// </summary>
         /// <param name="name"> Name of the effect in the custom post-processing render feature editor </param>
         /// <param name="injectPoint"> In which render pass this effect should be injected </param>
-        public FernPostProcessAttribute(string name, FernPostProcessInjectionPoint injectionPoint, bool shareInstance = false){
+        public FernRenderAttribute(string name, FernPostProcessInjectionPoint injectionPoint, bool shareInstance = false){
             this.name = name;
             this.injectionPoint = injectionPoint;
             this.shareInstance = shareInstance;
@@ -139,10 +139,10 @@ namespace UnityEngine.Rendering.FernRenderPipeline
         /// </summary>
         /// <param name="type">the type on which the attribute is attached</param>
         /// <returns>the attached FernPostProcessAttribute or null if none were attached</returns>
-        public static FernPostProcessAttribute GetAttribute(Type type){
+        public static FernRenderAttribute GetAttribute(Type type){
             if(type == null) return null;
-            var atttributes = type.GetCustomAttributes(typeof(FernPostProcessAttribute), false);
-            return (atttributes.Length != 0) ? (atttributes[0] as FernPostProcessAttribute) : null;
+            var atttributes = type.GetCustomAttributes(typeof(FernRenderAttribute), false);
+            return (atttributes.Length != 0) ? (atttributes[0] as FernRenderAttribute) : null;
         }
 
     }

@@ -28,7 +28,7 @@ namespace UnityEngine.Rendering.FernRenderPipeline
         public BoolParameter LowQuality = new BoolParameter(false);
     }
 
-    [FernPostProcess("Edge Detection", FernPostProcessInjectionPoint.BeforePostProcess)]
+    [FernRender("Edge Detection", FernPostProcessInjectionPoint.BeforePostProcess)]
     public class EdgeDetectionEffectRenderer : FernRPFeatureRenderer
     {
         private EdgeDetectionOutlineEffect m_VolumeComponent;

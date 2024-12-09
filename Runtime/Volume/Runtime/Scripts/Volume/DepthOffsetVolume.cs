@@ -6,7 +6,7 @@ using UnityEngine.Rendering.Universal;
 
 namespace UnityEngine.Rendering.FernRenderPipeline
 {
-    [System.Serializable, VolumeComponentMenu("FernRender/Depth Offset")]
+    [System.Serializable, VolumeComponentMenu("FernRP/Depth Offset")]
     public class DepthOffsetVolume : VolumeComponent, IPostProcessComponent
     {
         public BoolParameter isEnable = new BoolParameter(false);
@@ -16,7 +16,7 @@ namespace UnityEngine.Rendering.FernRenderPipeline
         public bool IsTileCompatible() => true;
     }
 
-    [FernPostProcess("Depth Offset", FernPostProcessInjectionPoint.BeforeOpaque)]
+    [FernRender("Depth Offset", FernPostProcessInjectionPoint.BeforeOpaque)]
     public class DepthOffsetRender : FernRPFeatureRenderer
     {
         private ProfilingSampler m_ProfilingSampler = new ProfilingSampler("DepthShadowPrepass");

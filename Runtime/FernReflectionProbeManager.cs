@@ -52,7 +52,6 @@ namespace UnityEngine.Rendering.FernRenderPipeline
                 }
             }
         }
-
        
         public void Dispose()
         {

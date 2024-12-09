@@ -7,20 +7,16 @@ using UnityEngine.Rendering.Universal;
 
 namespace UnityEngine.Rendering.FernRenderPipeline
 {
-    internal class AmbientProbeUpdatePass : ScriptableRenderPass
+    [FernRender("Depth Offset", FernPostProcessInjectionPoint.BeforeOpaque)]
+    internal class AmbientProbeUpdatePass : FernRPFeatureRenderer
     {
-        struct CameraTemporarySettings
-        {
-            public float fieldOfView;
-            public float aspect;
-        };
-        
         static readonly int s_AmbientProbeOutputBufferParam = Shader.PropertyToID("_AmbientProbeOutputBuffer");
         static readonly int s_VolumetricAmbientProbeOutputBufferParam = Shader.PropertyToID("_VolumetricAmbientProbeOutputBuffer");
         static readonly int s_DiffuseAmbientProbeOutputBufferParam = Shader.PropertyToID("_DiffuseAmbientProbeOutputBuffer");
         static readonly int s_ScratchBufferParam = Shader.PropertyToID("_ScratchBuffer");
         static readonly int s_AmbientProbeInputCubemap = Shader.PropertyToID("_AmbientProbeInputCubemap");
         static readonly int s_FogParameters = Shader.PropertyToID("_FogParameters");
+        private static readonly int AmbientSkyCube = Shader.PropertyToID("_AmbientSkyCube");
 
         private AmbientProbeUpdateVolume m_VolumeComponent;
 
@@ -37,10 +33,11 @@ namespace UnityEngine.Rendering.FernRenderPipeline
         internal bool ambientProbeIsReady = false;
         
         public int computeAmbientProbeKernel;
-        
-        private static readonly int AmbientSkyCube = Shader.PropertyToID("_AmbientSkyCube");
 
-        public AmbientProbeUpdatePass(PostProcessData data)
+        private FernReflectionProbeManager m_FernReflectionProbeManager;
+        
+
+        public AmbientProbeUpdatePass(FernRPData data)
         {
             computeAmbientProbeCS = data.shaders.shConvolutionCS;
             computeAmbientProbeKernel = computeAmbientProbeCS.FindKernel("CSMain");
@@ -54,37 +51,23 @@ namespace UnityEngine.Rendering.FernRenderPipeline
             diffuseAmbientProbeBuffer = new ComputeBuffer(7, 16);
 
             scratchBuffer = new ComputeBuffer(27, sizeof(uint));
-
         }
 
-        public void Setup()
+        public override void Initialize()
         {
             ClearAmbientProbe();
+            m_FernReflectionProbeManager = FernReflectionProbeManager.Create();
         }
 
-        public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
+        public override bool Setup(ref RenderingData renderingData, FernPostProcessInjectionPoint injectionPoint, Material uberMaterial = null)
         {
             var stack = VolumeManager.instance.stack;
             m_VolumeComponent = stack.GetComponent<AmbientProbeUpdateVolume>();
-            if(!m_VolumeComponent.IsActive()) return;
-            
-            var cmd = renderingData.commandBuffer;
+            if(!m_VolumeComponent.IsActive()) return false;
 
-            cmd.SetComputeBufferParam(computeAmbientProbeCS, computeAmbientProbeKernel, s_AmbientProbeOutputBufferParam, ambientProbeResult);
-            cmd.SetComputeBufferParam(computeAmbientProbeCS, computeAmbientProbeKernel, s_ScratchBufferParam, scratchBuffer);
-            cmd.SetComputeTextureParam(computeAmbientProbeCS, computeAmbientProbeKernel, s_AmbientProbeInputCubemap, skyCubemap);
-            if (diffuseAmbientProbeBuffer != null)
-                cmd.SetComputeBufferParam(computeAmbientProbeCS, computeAmbientProbeKernel, s_DiffuseAmbientProbeOutputBufferParam, diffuseAmbientProbeBuffer);
-            
-            Hammersley.BindConstants(cmd, computeAmbientProbeCS);
-            
-            cmd.DispatchCompute(computeAmbientProbeCS, computeAmbientProbeKernel, 1, 1, 1);
-            if (ambientProbeResult != null)
-            {
-                cmd.RequestAsyncReadback(ambientProbeResult, OnComputeAmbientProbeDone);
-            }
+            return true;
         }
-        
+
         internal void SetupAmbientProbe()
         {
             // Order is important!
@@ -95,11 +78,6 @@ namespace UnityEngine.Rendering.FernRenderPipeline
         public void ClearAmbientProbe()
         {
             m_AmbientProbe = new SphericalHarmonicsL2();
-        }
-
-        public void UpdateAmbientProbe(in SphericalHarmonicsL2 probe)
-        {
-            m_AmbientProbe = probe;
         }
 
         public void OnComputeAmbientProbeDone(AsyncGPUReadbackRequest request)
@@ -118,6 +96,27 @@ namespace UnityEngine.Rendering.FernRenderPipeline
                 ambientProbeIsReady = true;
 
                 SetupAmbientProbe();
+            }
+        }
+
+        public override void Render(CommandBuffer cmd, ScriptableRenderContext context, FernCoreFeatureRenderPass.PostProcessRTHandles rtHandles,
+            ref RenderingData renderingData, FernPostProcessInjectionPoint injectionPoint)
+        {
+            
+            m_FernReflectionProbeManager.UpdateGpuData(cmd, ref renderingData);
+            
+            cmd.SetComputeBufferParam(computeAmbientProbeCS, computeAmbientProbeKernel, s_AmbientProbeOutputBufferParam, ambientProbeResult);
+            cmd.SetComputeBufferParam(computeAmbientProbeCS, computeAmbientProbeKernel, s_ScratchBufferParam, scratchBuffer);
+            cmd.SetComputeTextureParam(computeAmbientProbeCS, computeAmbientProbeKernel, s_AmbientProbeInputCubemap, skyCubemap);
+            if (diffuseAmbientProbeBuffer != null)
+                cmd.SetComputeBufferParam(computeAmbientProbeCS, computeAmbientProbeKernel, s_DiffuseAmbientProbeOutputBufferParam, diffuseAmbientProbeBuffer);
+            
+            Hammersley.BindConstants(cmd, computeAmbientProbeCS);
+            
+            cmd.DispatchCompute(computeAmbientProbeCS, computeAmbientProbeKernel, 1, 1, 1);
+            if (ambientProbeResult != null)
+            {
+                cmd.RequestAsyncReadback(ambientProbeResult, OnComputeAmbientProbeDone);
             }
         }
     }

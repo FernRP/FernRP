@@ -10,6 +10,10 @@ namespace UnityEngine.Rendering.FernRenderPipeline
     [Serializable]
     public class FernRPCoreFeature : ScriptableRendererFeature
     {
+
+        [SerializeField]
+        internal FernRPData m_FernRPData;
+        
         private FernCoreFeatureRenderPass m_BeforeOpaquePass, m_AfterOpaqueAndSkyPass, _mBeforeCoreFeaturePass, _mAfterCoreFeaturePass;
 
         public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
@@ -44,18 +48,9 @@ namespace UnityEngine.Rendering.FernRenderPipeline
             List<FernRPFeatureRenderer> beforePostProcessRenderers = new List<FernRPFeatureRenderer>();
             List<FernRPFeatureRenderer> afterPostProcessRenderers = new List<FernRPFeatureRenderer>();
 
-            //beforeOpaqueRenderers.Add(new AmbientProbeUpdatePass());
-
-            // Sorry, there are some that I can't open source yet
-            //beforeOpaqueRenderers.Add(new TrickAreaLightsRender());
-            //beforeOpaqueRenderers.Add(new PlanarReflectionRender());
+            beforeOpaqueRenderers.Add(new AmbientProbeUpdatePass(m_FernRPData));
             beforeOpaqueRenderers.Add(new DepthOffsetRender());
-            //beforeOpaqueRenderers.Add(new SimpleSSAORenderer());
             beforePostProcessRenderers.Add(new EdgeDetectionEffectRenderer());
-            //var hbaoRender = new HBAORenderer();
-            //beforeOpaqueRenderers.Add(hbaoRender);
-            //beforePostProcessRenderers.Add(hbaoRender);
-            //beforePostProcessRenderers.Add(new DualKawaseBlurRender());
             
             m_BeforeOpaquePass = new FernCoreFeatureRenderPass(FernPostProcessInjectionPoint.BeforeOpaque, beforeOpaqueRenderers);
             m_AfterOpaqueAndSkyPass = new FernCoreFeatureRenderPass(FernPostProcessInjectionPoint.AfterOpaqueAndSky, afterOpaqueAndSkyRenderers);
@@ -115,7 +110,7 @@ namespace UnityEngine.Rendering.FernRenderPipeline
             foreach (var renderer in renderers)
             {
                 // Get renderer name and add it to the names list
-                var attribute = FernPostProcessAttribute.GetAttribute(renderer.GetType());
+                var attribute = FernRenderAttribute.GetAttribute(renderer.GetType());
                 m_ProfilingSamplers.Add(new ProfilingSampler(attribute?.Name));
             }
 

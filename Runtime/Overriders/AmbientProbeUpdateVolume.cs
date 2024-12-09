@@ -11,8 +11,6 @@ namespace UnityEngine.Rendering.FernRenderPipeline
         public bool IsActive()
         {
             return isEnable.overrideState && isEnable.value;
-            
-            
         }
 
         public bool IsTileCompatible()
