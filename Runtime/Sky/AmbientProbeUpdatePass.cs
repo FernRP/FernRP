@@ -102,7 +102,6 @@ namespace UnityEngine.Rendering.FernRenderPipeline
         public override void Render(CommandBuffer cmd, ScriptableRenderContext context, FernCoreFeatureRenderPass.PostProcessRTHandles rtHandles,
             ref RenderingData renderingData, FernPostProcessInjectionPoint injectionPoint)
         {
-            
             m_FernReflectionProbeManager.UpdateGpuData(cmd, ref renderingData);
             
             cmd.SetComputeBufferParam(computeAmbientProbeCS, computeAmbientProbeKernel, s_AmbientProbeOutputBufferParam, ambientProbeResult);

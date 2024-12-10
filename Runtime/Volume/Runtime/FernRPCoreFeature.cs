@@ -14,30 +14,24 @@ namespace UnityEngine.Rendering.FernRenderPipeline
         [SerializeField]
         internal FernRPData m_FernRPData;
         
-        private FernCoreFeatureRenderPass m_BeforeOpaquePass, m_AfterOpaqueAndSkyPass, _mBeforeCoreFeaturePass, _mAfterCoreFeaturePass;
+        private FernCoreFeatureRenderPass m_BeforeOpaquePass, m_AfterOpaqueAndSkyPass, m_BeforeCoreFeaturePass, m_AfterCoreFeaturePass;
 
         public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
         {
-            if (renderingData.cameraData.postProcessEnabled)
+            if (m_BeforeOpaquePass.PrepareRenderers(ref renderingData))
             {
-                if (m_BeforeOpaquePass.HasPostProcessRenderers &&
-                    m_BeforeOpaquePass.PrepareRenderers(ref renderingData))
-                {
-                    m_BeforeOpaquePass.Setup(renderer);
-                    renderer.EnqueuePass(m_BeforeOpaquePass);
-                }
-                if (m_AfterOpaqueAndSkyPass.HasPostProcessRenderers &&
-                    m_AfterOpaqueAndSkyPass.PrepareRenderers(ref renderingData))
-                {
-                    m_AfterOpaqueAndSkyPass.Setup(renderer);
-                    renderer.EnqueuePass(m_AfterOpaqueAndSkyPass);
-                }
-                if (_mBeforeCoreFeaturePass.HasPostProcessRenderers &&
-                    _mBeforeCoreFeaturePass.PrepareRenderers(ref renderingData))
-                {
-                    _mBeforeCoreFeaturePass.Setup(renderer);
-                    renderer.EnqueuePass(_mBeforeCoreFeaturePass);
-                }
+                m_BeforeOpaquePass.Setup(renderer);
+                renderer.EnqueuePass(m_BeforeOpaquePass);
+            }
+            if (m_AfterOpaqueAndSkyPass.PrepareRenderers(ref renderingData))
+            {
+                m_AfterOpaqueAndSkyPass.Setup(renderer);
+                renderer.EnqueuePass(m_AfterOpaqueAndSkyPass);
+            }
+            if (m_BeforeCoreFeaturePass.PrepareRenderers(ref renderingData))
+            {
+                m_BeforeCoreFeaturePass.Setup(renderer);
+                renderer.EnqueuePass(m_BeforeCoreFeaturePass);
             }
         }
 
@@ -54,8 +48,8 @@ namespace UnityEngine.Rendering.FernRenderPipeline
             
             m_BeforeOpaquePass = new FernCoreFeatureRenderPass(FernPostProcessInjectionPoint.BeforeOpaque, beforeOpaqueRenderers);
             m_AfterOpaqueAndSkyPass = new FernCoreFeatureRenderPass(FernPostProcessInjectionPoint.AfterOpaqueAndSky, afterOpaqueAndSkyRenderers);
-            _mBeforeCoreFeaturePass = new FernCoreFeatureRenderPass(FernPostProcessInjectionPoint.BeforePostProcess, beforePostProcessRenderers);
-            _mAfterCoreFeaturePass = new FernCoreFeatureRenderPass(FernPostProcessInjectionPoint.AfterPostProcess, afterPostProcessRenderers);
+            m_BeforeCoreFeaturePass = new FernCoreFeatureRenderPass(FernPostProcessInjectionPoint.BeforePostProcess, beforePostProcessRenderers);
+            m_AfterCoreFeaturePass = new FernCoreFeatureRenderPass(FernPostProcessInjectionPoint.AfterPostProcess, afterPostProcessRenderers);
         }
 
         protected override void Dispose(bool disposing)
@@ -63,8 +57,8 @@ namespace UnityEngine.Rendering.FernRenderPipeline
             base.Dispose(disposing);
             m_BeforeOpaquePass.Dispose();
             m_AfterOpaqueAndSkyPass.Dispose();
-            _mBeforeCoreFeaturePass.Dispose();
-            _mAfterCoreFeaturePass.Dispose();
+            m_BeforeCoreFeaturePass.Dispose();
+            m_AfterCoreFeaturePass.Dispose();
         }
     }
 
