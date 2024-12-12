@@ -123,7 +123,8 @@ Shader "FernRender/URP/FERNNPREye"
     }
 
     HLSLINCLUDE
-		#define _NPR 1
+        #define _NPR 1
+		#define EYE 1
 	ENDHLSL
     
     SubShader
@@ -131,48 +132,52 @@ Shader "FernRender/URP/FERNNPREye"
         Tags{"RenderType" = "Opaque" "RenderPipeline" = "UniversalPipeline" "IgnoreProjector" = "True"}
         LOD 300
 
-        Pass
-        {
-            Name "FernDepthPrePass"
-            Tags{"LightMode" = "SRPDefaultUnlit"} // Hard Code Now
-
-            Blend Off
-            ZWrite on
-            Cull off
-            ColorMask 0
-
-            HLSLPROGRAM
-            #pragma only_renderers gles gles3 glcore d3d11
-            #pragma target 3.0
-
-            // -------------------------------------
-            // Fern Keywords
-            #pragma shader_feature_local_vertex _PERSPECTIVEREMOVE
-
-            #pragma vertex LitPassVertex
-            #pragma fragment LitPassFragment_DepthPrePass
-
-            #include "NPRStandardInput.hlsl"
-            #include "FernStandardForwardPass.hlsl"
-            ENDHLSL
-        }
+        // TODO: 
+//        Pass
+//        {
+//            Name "FernDepthPrePass"
+//            Tags{"LightMode" = "SRPDefaultUnlit"} // Hard Code Now
+//
+//            Blend Off
+//            ZWrite on
+//            Cull off
+//            ColorMask 0
+//
+//            HLSLPROGRAM
+//            #pragma only_renderers gles gles3 glcore d3d11
+//            #pragma target 3.0
+//
+//            // -------------------------------------
+//            // Fern Keywords
+//            #pragma shader_feature_local_vertex _PERSPECTIVEREMOVE
+//
+//            #pragma vertex LitPassVertex
+//            #pragma fragment LitPassFragment_DepthPrePass
+//
+//            #include "NPRStandardInput.hlsl"
+//            #include "FernStandardForwardPass.hlsl"
+//            ENDHLSL
+//        }
         
         Pass
         {
             Name "ForwardLit"
-            Tags{"LightMode" = "UniversalForward"}
+            Tags
+            {
+                "LightMode" = "UniversalForward"
+            }
 
             Blend[_SrcBlend][_DstBlend]
             ZWrite[_ZWrite]
             Cull[_Cull]
 
             HLSLPROGRAM
-            #pragma only_renderers gles gles3 glcore d3d11
             #pragma target 3.0
-
+            
             // -------------------------------------
-            // Shader Type
-            #define EYE 1
+            // Shader Stages
+            #pragma vertex LitPassVertex
+            #pragma fragment LitPassFragment
 
             // -------------------------------------
             // Material Keywords
@@ -198,14 +203,16 @@ Shader "FernRender/URP/FERNNPREye"
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
             #pragma multi_compile _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
             #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
-            #pragma multi_compile_fragment _ _SHADOWS_SOFT
-            #pragma multi_compile_fragment _ _SCREEN_SPACE_OCCLUSION
-            #pragma multi_compile_fragment _ _DBUFFER_MRT1 _DBUFFER_MRT2 _DBUFFER_MRT3
             #pragma multi_compile_fragment _ _REFLECTION_PROBE_BLENDING
             #pragma multi_compile_fragment _ _REFLECTION_PROBE_BOX_PROJECTION
-            #pragma multi_compile_fragment _ _LIGHT_LAYERS
+            #pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
+            #pragma multi_compile_fragment _ _SCREEN_SPACE_OCCLUSION
+            #pragma multi_compile_fragment _ _DBUFFER_MRT1 _DBUFFER_MRT2 _DBUFFER_MRT3
             #pragma multi_compile_fragment _ _LIGHT_COOKIES
-            #pragma multi_compile _ _CLUSTERED_RENDERING
+            #pragma multi_compile _ _LIGHT_LAYERS
+            #pragma multi_compile _ _FORWARD_PLUS
+            #include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
+            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/RenderingLayers.hlsl"
 
             // -------------------------------------
             // Unity defined keywords
@@ -214,17 +221,18 @@ Shader "FernRender/URP/FERNNPREye"
             #pragma multi_compile _ DIRLIGHTMAP_COMBINED
             #pragma multi_compile _ LIGHTMAP_ON
             #pragma multi_compile _ DYNAMICLIGHTMAP_ON
+            #pragma multi_compile _ USE_LEGACY_LIGHTMAPS
+            #pragma multi_compile_fragment _ LOD_FADE_CROSSFADE
             #pragma multi_compile_fog
             #pragma multi_compile_fragment _ DEBUG_DISPLAY
+            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ProbeVolumeVariants.hlsl"
+
 
             //--------------------------------------
             // GPU Instancing
             #pragma multi_compile_instancing
             #pragma instancing_options renderinglayer
-            #pragma multi_compile _ DOTS_INSTANCING_ON
-
-            #pragma vertex LitPassVertex
-            #pragma fragment LitPassFragment
+            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
 
             #include "NPRStandardInput.hlsl"
             #include "FernStandardForwardPass.hlsl"
@@ -242,30 +250,35 @@ Shader "FernRender/URP/FERNNPREye"
             Cull[_Cull]
 
             HLSLPROGRAM
-            #pragma only_renderers gles gles3 glcore d3d11
             #pragma target 3.0
 
             // -------------------------------------
-            // Shader Type
-            #define EYE 1
-
-            //--------------------------------------
-            // GPU Instancing
-            #pragma multi_compile_instancing
+            // Shader Stages
+            #pragma vertex ShadowPassVertex
+            #pragma fragment ShadowPassFragment
 
             // -------------------------------------
             // Material Keywords
             #pragma shader_feature_local_fragment _ALPHATEST_ON
+            #pragma shader_feature_local_fragment _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
 
+            //--------------------------------------
+            // GPU Instancing
+            #pragma multi_compile_instancing
+            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+            
             // -------------------------------------
             // Universal Pipeline keywords
+
+            // -------------------------------------
+            // Unity defined keywords
+            #pragma multi_compile _ LOD_FADE_CROSSFADE
 
             // This is used during shadow map generation to differentiate between directional and punctual light shadows, as they use different formulas to apply Normal Bias
             #pragma multi_compile_vertex _ _CASTING_PUNCTUAL_LIGHT_SHADOW
 
-            #pragma vertex ShadowPassVertex
-            #pragma fragment ShadowPassFragment
-
+            // -------------------------------------
+            // Includes
             #include "NPRStandardInput.hlsl"
             #include "Packages/com.fern.renderpipeline/ShaderLibrary/ShadowCasterPass.hlsl"
             ENDHLSL
@@ -273,43 +286,134 @@ Shader "FernRender/URP/FERNNPREye"
 
         Pass
         {
-            Name "DepthOnly"
-            Tags{"LightMode" = "DepthOnly"}
+            // Lightmode matches the ShaderPassName set in UniversalRenderPipeline.cs. SRPDefaultUnlit and passes with
+            // no LightMode tag are also rendered by Universal Render Pipeline
+            Name "GBuffer"
+            Tags
+            {
+                "LightMode" = "UniversalGBuffer"
+            }
 
-            ZWrite On
-            ColorMask 0
+            // -------------------------------------
+            // Render State Commands
+            ZWrite[_ZWrite]
+            ZTest LEqual
             Cull[_Cull]
 
             HLSLPROGRAM
-            #pragma only_renderers gles gles3 glcore d3d11
-            #pragma target 3.0
+            #pragma target 4.5
+
+            // Deferred Rendering Path does not support the OpenGL-based graphics API:
+            // Desktop OpenGL, OpenGL ES 3.0, WebGL 2.0.
+            #pragma exclude_renderers gles3 glcore
 
             // -------------------------------------
-            // Shader Type
-            #define EYE 1
+            // Shader Stages
+            #pragma vertex LitGBufferPassVertex
+            #pragma fragment LitGBufferPassFragment
+
+            // -------------------------------------
+            // Material Keywords
+            #pragma shader_feature_local _NORMALMAP
+            #pragma shader_feature_local_fragment _ALPHATEST_ON
+            //#pragma shader_feature_local_fragment _ALPHAPREMULTIPLY_ON
+            #pragma shader_feature_local_fragment _EMISSION
+            #pragma shader_feature_local_fragment _METALLICSPECGLOSSMAP
+            #pragma shader_feature_local_fragment _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+            #pragma shader_feature_local_fragment _OCCLUSIONMAP
+            #pragma shader_feature_local _PARALLAXMAP
+            #pragma shader_feature_local _ _DETAIL_MULX2 _DETAIL_SCALED
+
+            #pragma shader_feature_local_fragment _SPECULARHIGHLIGHTS_OFF
+            #pragma shader_feature_local_fragment _ENVIRONMENTREFLECTIONS_OFF
+            #pragma shader_feature_local_fragment _SPECULAR_SETUP
+            #pragma shader_feature_local _RECEIVE_SHADOWS_OFF
+
+            // -------------------------------------
+            // Universal Pipeline keywords
+            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
+            //#pragma multi_compile _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
+            //#pragma multi_compile _ _ADDITIONAL_LIGHT_SHADOWS
+            #pragma multi_compile_fragment _ _REFLECTION_PROBE_BLENDING
+            #pragma multi_compile_fragment _ _REFLECTION_PROBE_BOX_PROJECTION
+            #pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
+            #pragma multi_compile_fragment _ _DBUFFER_MRT1 _DBUFFER_MRT2 _DBUFFER_MRT3
+            #pragma multi_compile_fragment _ _RENDER_PASS_ENABLED
+            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/RenderingLayers.hlsl"
+
+            // -------------------------------------
+            // Unity defined keywords
+            #pragma multi_compile _ LIGHTMAP_SHADOW_MIXING
+            #pragma multi_compile _ SHADOWS_SHADOWMASK
+            #pragma multi_compile _ DIRLIGHTMAP_COMBINED
+            #pragma multi_compile _ LIGHTMAP_ON
+            #pragma multi_compile _ DYNAMICLIGHTMAP_ON
+            #pragma multi_compile _ USE_LEGACY_LIGHTMAPS
+            #pragma multi_compile _ LOD_FADE_CROSSFADE
+            #pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT
+            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ProbeVolumeVariants.hlsl"
 
             //--------------------------------------
             // GPU Instancing
             #pragma multi_compile_instancing
+            #pragma instancing_options renderinglayer
+            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+
+            // -------------------------------------
+            // Includes
+            #include "Packages/com.unity.render-pipelines.universal/Shaders/LitInput.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/Shaders/LitGBufferPass.hlsl"
+            ENDHLSL
+        }
+
+        Pass
+        {
+            Name "DepthOnly"
+            Tags
+            {
+                "LightMode" = "DepthOnly"
+            }
+
+            // -------------------------------------
+            // Render State Commands
+            ZWrite On
+            ColorMask R
+            Cull[_Cull]
+
+            HLSLPROGRAM
+            #pragma target 3.0
+
+            // -------------------------------------
+            // Shader Stages
+            #pragma vertex DepthOnlyVertex
+            #pragma fragment DepthOnlyFragment
 
             // -------------------------------------
             // Fern Keywords
             #pragma shader_feature_local_vertex _PERSPECTIVEREMOVE
-
-            #pragma vertex DepthOnlyVertex
-            #pragma fragment DepthOnlyFragment
 
             // -------------------------------------
             // Material Keywords
             #pragma shader_feature_local_fragment _ALPHATEST_ON
             #pragma shader_feature_local_fragment _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
 
+            // -------------------------------------
+            // Unity defined keywords
+            #pragma multi_compile _ LOD_FADE_CROSSFADE
+
+            //--------------------------------------
+            // GPU Instancing
+            #pragma multi_compile_instancing
+            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+
+            // -------------------------------------
+            // Includes
             #include "NPRStandardInput.hlsl"
             #include "Packages/com.fern.renderpipeline/ShaderLibrary/DepthOnlyPass.hlsl"
             ENDHLSL
         }
 
-        // This pass is used when drawing to a _CameraNormalsTexture texture
+// This pass is used when drawing to a _CameraNormalsTexture texture
         Pass
         {
             Name "DepthNormals"
@@ -319,13 +423,10 @@ Shader "FernRender/URP/FERNNPREye"
             Cull[_Cull]
 
             HLSLPROGRAM
-            #pragma only_renderers gles gles3 glcore d3d11
             #pragma target 3.0
 
             // -------------------------------------
-            // Shader Type
-            #define EYE 1
-
+            // Shader Stages
             #pragma vertex DepthNormalsVertex
             #pragma fragment DepthNormalsFragment
 
@@ -341,15 +442,140 @@ Shader "FernRender/URP/FERNNPREye"
             // Fern Keywords
             #pragma shader_feature_local_vertex _PERSPECTIVEREMOVE
 
+            // -------------------------------------
+            // Unity defined keywords
+            #pragma multi_compile_fragment _ LOD_FADE_CROSSFADE
+            
+            // -------------------------------------
+            // Universal Pipeline keywords
+            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/RenderingLayers.hlsl"
+
             //--------------------------------------
             // GPU Instancing
             #pragma multi_compile_instancing
+            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
 
+            // -------------------------------------
+            // Includes
             #include "NPRStandardInput.hlsl"
             #include "NPRDepthNormalsPass.hlsl"
             ENDHLSL
         }
 
+// This pass it not used during regular rendering, only for lightmap baking.
+        Pass
+        {
+            Name "Meta"
+            Tags
+            {
+                "LightMode" = "Meta"
+            }
+
+            // -------------------------------------
+            // Render State Commands
+            Cull Off
+
+            HLSLPROGRAM
+            #pragma target 3.0
+
+            // -------------------------------------
+            // Shader Stages
+            #pragma vertex UniversalVertexMeta
+            #pragma fragment UniversalFragmentMetaLit
+
+            // -------------------------------------
+            // Material Keywords
+            #pragma shader_feature_local_fragment _SPECULAR_SETUP
+            #pragma shader_feature_local_fragment _EMISSION
+            #pragma shader_feature_local_fragment _METALLICSPECGLOSSMAP
+            #pragma shader_feature_local_fragment _ALPHATEST_ON
+            #pragma shader_feature_local_fragment _ _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+            #pragma shader_feature_local _ _DETAIL_MULX2 _DETAIL_SCALED
+            #pragma shader_feature_local_fragment _SPECGLOSSMAP
+            #pragma shader_feature EDITOR_VISUALIZATION
+
+            // -------------------------------------
+            // Includes
+            #include "NPRStandardInput.hlsl"
+            #include "NPRMetaPass.hlsl"
+
+            ENDHLSL
+        }
+
+        Pass
+        {
+            Name "Universal2D"
+            Tags
+            {
+                "LightMode" = "Universal2D"
+            }
+
+            // -------------------------------------
+            // Render State Commands
+            Blend[_SrcBlend][_DstBlend]
+            ZWrite[_ZWrite]
+            Cull[_Cull]
+
+            HLSLPROGRAM
+            #pragma target 2.0
+
+            // -------------------------------------
+            // Shader Stages
+            #pragma vertex vert
+            #pragma fragment frag
+
+            // -------------------------------------
+            // Material Keywords
+            #pragma shader_feature_local_fragment _ALPHATEST_ON
+            #pragma shader_feature_local_fragment _ALPHAPREMULTIPLY_ON
+
+            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+
+            // -------------------------------------
+            // Includes
+            #include "Packages/com.unity.render-pipelines.universal/Shaders/LitInput.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/Shaders/Utils/Universal2D.hlsl"
+            ENDHLSL
+        }
+
+        // Normal Outline
+        Pass
+        {
+            Name "OutLine"
+            Tags 
+            {
+                "LightMode" = "Outline" 
+            }
+            
+            Cull Front
+            ZWrite [_ZWrite]
+            ZTest LEqual
+            Blend [_SrcBlend] [_DstBlend]
+            Offset 1, 1
+
+            HLSLPROGRAM
+            #pragma target 3.0
+            
+            // -------------------------------------
+            // Shader Stages
+            #pragma vertex NormalOutLineVertex
+            #pragma fragment NormalOutlineFragment
+            
+            #pragma shader_feature_local _OUTLINE
+            
+            // -------------------------------------
+            // Fern Keywords
+            #pragma shader_feature_local_vertex _PERSPECTIVEREMOVE
+            #pragma shader_feature_local_vertex _SMOOTHEDNORMAL
+            #pragma shader_feature_local_vertex _OUTLINEWIDTHWITHVERTEXTCOLORA _OUTLINEWIDTHWITHUV8A
+            #pragma shader_feature_local_fragment _OUTLINECOLORBLENDBASEMAP _OUTLINECOLORBLENDVERTEXCOLOR
+
+            // -------------------------------------
+            // Includes
+            #include "NPRStandardInput.hlsl"
+            #include "Packages/com.fern.renderpipeline/ShaderLibrary/NormalOutline.hlsl"
+            ENDHLSL
+        }
     }
 
     FallBack "Hidden/Universal Render Pipeline/FallbackError"

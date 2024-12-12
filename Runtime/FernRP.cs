@@ -26,7 +26,7 @@ namespace UnityEngine.Rendering.FernRenderPipeline
         private void OnEnable()
         {
             instance = this;
-            GraphicsSettings.renderPipelineAsset = renderPipelineAsset;
+            GraphicsSettings.defaultRenderPipeline = renderPipelineAsset;
             RenderPipelineManager.beginCameraRendering += OnBeginCameraRender;
             
             // Grass Enable
@@ -76,7 +76,7 @@ namespace UnityEngine.Rendering.FernRenderPipeline
 
         public void ApplyRenderPipeline()
         {
-            GraphicsSettings.renderPipelineAsset = renderPipelineAsset;
+            GraphicsSettings.defaultRenderPipeline = renderPipelineAsset;
         }
         
 #if FERN_ENV_GRASS

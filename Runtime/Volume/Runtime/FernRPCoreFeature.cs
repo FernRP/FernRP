@@ -209,7 +209,10 @@ namespace UnityEngine.Rendering.FernRenderPipeline
 
             CommandBuffer cmd = CommandBufferPool.Get(m_PassName);
             
-            PostProcessUtils.SetSourceSize(cmd, cameraData.cameraTargetDescriptor);
+            // Disable obsolete warning for internal usage
+            #pragma warning disable CS0618
+            PostProcessUtils.SetSourceSize(cmd, cameraData.renderer.cameraColorTargetHandle);
+            #pragma warning restore CS0618
             
             for (int index = 0; index < m_ActivePostProcessRenderers.Count; ++index)
             {
@@ -238,11 +241,6 @@ namespace UnityEngine.Rendering.FernRenderPipeline
 
         void Render(CommandBuffer cmd, ScriptableRenderContext context, FernRPFeatureRenderer fernPostRenderer, ref RenderingData renderingData)
         {
-            ref CameraData cameraData = ref renderingData.cameraData;
-            bool useTemporalAA = cameraData.IsTemporalAAEnabled();
-            if (cameraData.antialiasing == AntialiasingMode.TemporalAntiAliasing && !useTemporalAA)
-                TemporalAA.ValidateAndWarn(ref cameraData);
-
             fernPostRenderer.Render(cmd, context, m_rtHandles, ref renderingData, injectionPoint);
         }
 

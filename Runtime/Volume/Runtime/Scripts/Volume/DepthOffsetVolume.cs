@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
@@ -46,6 +47,7 @@ namespace UnityEngine.Rendering.FernRenderPipeline
             m_FilteringSettings = new FilteringSettings(RenderQueueRange.opaque);
 
             var descriptor = renderingData.cameraData.cameraTargetDescriptor;
+            descriptor.graphicsFormat = GraphicsFormat.None;
             descriptor.depthStencilFormat = descriptor.depthStencilFormat;
             descriptor.depthBufferBits = 16;
             descriptor.msaaSamples = 1;
