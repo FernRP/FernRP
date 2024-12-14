@@ -9,7 +9,7 @@
     "com.unity.burst": "1.8.4",
     "com.unity.render-pipelines.core": "14.0.8",
     "com.unity.shadergraph": "14.0.8",
-    "com.jasonma.lwgui": "ssh://git@github.com:DJ-Huang/LWGUI.git"
+    "com.jasonma.lwgui": "git@github.com:DJ-Huang/LWGUI.git"
   },
   "author": {
     "name": "DJ-Huang",
