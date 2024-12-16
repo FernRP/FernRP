@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
 
 namespace UnityEngine.Rendering.FernRenderPipeline
@@ -196,6 +197,19 @@ namespace UnityEngine.Rendering.FernRenderPipeline
 
             // return if no renderers are active
             return m_ActivePostProcessRenderers.Count != 0;
+        }
+
+        public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
+        {
+            
+            for (int index = 0; index < m_ActivePostProcessRenderers.Count; ++index)
+            {
+                var rendererIndex = m_ActivePostProcessRenderers[index];
+                var fernPostProcessRenderer = m_PostProcessRenderers[rendererIndex];
+                if (!fernPostProcessRenderer.Initialized)
+                    fernPostProcessRenderer.InitializeInternal();
+                fernPostProcessRenderer.RecordRenderGraph(renderGraph, frameData);
+            }
         }
 
         /// <summary>

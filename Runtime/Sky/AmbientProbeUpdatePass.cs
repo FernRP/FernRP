@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
+using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
 
 namespace UnityEngine.Rendering.FernRenderPipeline
@@ -116,6 +117,11 @@ namespace UnityEngine.Rendering.FernRenderPipeline
             {
                 cmd.RequestAsyncReadback(ambientProbeResult, OnComputeAmbientProbeDone);
             }
+        }
+
+        public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
+        {
+            
         }
     }
 }

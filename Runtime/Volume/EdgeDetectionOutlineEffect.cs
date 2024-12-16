@@ -1,6 +1,7 @@
 ﻿using UnityEngine.Rendering.FernRenderPipeline;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.Serialization;
 
@@ -73,6 +74,22 @@ namespace UnityEngine.Rendering.FernRenderPipeline
 
             return true;
         }
+        
+        private class EdgeDetectionOutlinePassData
+        {
+            internal Material material;
+            internal TextureHandle edgeDetectionTexture;
+        }
+        
+        private void InitEdgeDetectionOutlinePassData(ref EdgeDetectionOutlinePassData data)
+        {
+            data.material = m_Material;
+        }
+
+        public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
+        {
+        }
+
 
         public override void Render(CommandBuffer cmd, ScriptableRenderContext context, FernCoreFeatureRenderPass.PostProcessRTHandles rtHandles, ref RenderingData renderingData, FernPostProcessInjectionPoint injectionPoint)
         {

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
 
 namespace UnityEngine.Rendering.FernRenderPipeline
@@ -76,6 +77,11 @@ namespace UnityEngine.Rendering.FernRenderPipeline
                 context.DrawRenderers(renderingData.cullResults, ref drawSettings, ref m_FilteringSettings);
                 cmd.SetGlobalTexture(depthShadowRTHandle.name, depthShadowRTHandle.nameID);
             }
+        }
+
+        public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
+        {
+            Debug.Log("RenderGraph");
         }
 
         public override void Dispose(bool disposing)

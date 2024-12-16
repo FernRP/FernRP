@@ -46,9 +46,10 @@ namespace UnityEngine.Rendering.FernRenderPipeline
         [Serializable, ReloadGroup]
         public sealed class ShaderResources
         {
-            /// <summary>
-            /// The Final Post Processing shader.
-            /// </summary>
+            
+            [Reload("Shaders/PostProcessing/EdgeDetectionOutline.shader")]
+            public ComputeShader edgeDetectionOutlinePS;
+            
             [Reload("Shaders/Ambient/SHConvolution.compute")]
             public ComputeShader shConvolutionCS;
         }
