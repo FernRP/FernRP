@@ -39,7 +39,7 @@ half _SpaceScreenThresold;
 half _PorousMetallic;
 half _PorousSmoothness;
 half _PorousDensity;
-// emission
+// emission 
 half _EmissionColorAlbedoWeight;
 // rim
 half _RimDirectionLightContribution;

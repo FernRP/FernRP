@@ -26,6 +26,7 @@ namespace UnityEngine.Rendering.FernRenderPipeline
             desc.height = 2;
             desc.depthBufferBits = 0;
             desc.msaaSamples = 1;
+            desc.volumeDepth = 1;
             RenderingUtils.ReAllocateIfNeeded(ref blackCubemapRT, desc, FilterMode.Bilinear, TextureWrapMode.Clamp,
                 name: "_AmbientSkyCube");
             

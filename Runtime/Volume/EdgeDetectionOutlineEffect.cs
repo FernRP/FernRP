@@ -1,12 +1,13 @@
 ﻿using UnityEngine.Rendering.FernRenderPipeline;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.Serialization;
 
 namespace UnityEngine.Rendering.FernRenderPipeline
 {
-    [System.Serializable, VolumeComponentMenu("FernRender/Edge Detection Outline")]
+    [System.Serializable, VolumeComponentMenu("FernRP/Edge Detection Outline")]
     public class EdgeDetectionOutlineEffect : VolumeComponent
     {
         [Tooltip("Controls the Effect Intensity")]
@@ -34,6 +35,7 @@ namespace UnityEngine.Rendering.FernRenderPipeline
         private EdgeDetectionOutlineEffect m_VolumeComponent;
         private RTHandle edgeDetectionRTHandle;
         private Material m_Material;
+        private ProfilingSampler m_ProfilingSampler = new ProfilingSampler("Edge Detection");
         private bool m_SupportsR8RenderTextureFormat =  SystemInfo.SupportsRenderTextureFormat(RenderTextureFormat.R8);
 
         static class ShaderIDs {
@@ -73,6 +75,79 @@ namespace UnityEngine.Rendering.FernRenderPipeline
 
             return true;
         }
+        
+        private class EdgeDetectionOutlinePassData
+        {
+            internal Material material;
+            internal TextureHandle edgeDetectionTexture;
+        }
+        
+        private void InitEdgeDetectionOutlinePassData(ref EdgeDetectionOutlinePassData data)
+        {
+            data.material = m_Material;
+        }
+
+        public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
+        {
+            UniversalCameraData cameraData = frameData.Get<UniversalCameraData>();
+            UniversalResourceData resourceData = frameData.Get<UniversalResourceData>();
+
+            CreateRenderTextureHandles(renderGraph, resourceData, cameraData, out TextureHandle edgeDetectionRTHandle);
+            
+            // Get the resources
+            TextureHandle cameraDepthTexture = resourceData.cameraColor;
+            
+            CoreUtils.SetKeyword(m_Material, "_EDGEDETECION", true);
+            CoreUtils.SetKeyword(m_Material, ShaderIDs.LowQuality, m_VolumeComponent.LowQuality.value);
+
+            using (IUnsafeRenderGraphBuilder builder =
+                   renderGraph.AddUnsafePass<EdgeDetectionOutlinePassData>("Edge Detection", out var passData, m_ProfilingSampler))
+            {
+                // Shader keyword changes are considered as global state modifications
+                builder.AllowGlobalStateModification(true);
+                builder.AllowPassCulling(false);
+                
+                // Fill in the Pass data...
+                InitEdgeDetectionOutlinePassData(ref passData);
+                passData.edgeDetectionTexture = edgeDetectionRTHandle;
+                
+                // Declare input textures
+                builder.UseTexture(passData.edgeDetectionTexture, AccessFlags.ReadWrite);
+
+                builder.SetRenderFunc((EdgeDetectionOutlinePassData data, UnsafeGraphContext rgContext) =>
+                {
+                    CommandBuffer cmd = CommandBufferHelpers.GetNativeCommandBuffer(rgContext.cmd);
+                    RenderBufferLoadAction finalLoadAction = RenderBufferLoadAction.DontCare;
+
+                    float angleThreshold = m_VolumeComponent.angleThreshold.value;
+                    float depthThreshold = m_VolumeComponent.depthThreshold.value;
+                    Vector4 threshold = new Vector4(Mathf.Cos(angleThreshold * Mathf.Deg2Rad), m_VolumeComponent.thickness.value, depthThreshold, m_VolumeComponent.intensity.value);
+                    cmd.SetGlobalVector(ShaderIDs.Threshold, threshold);
+                    cmd.SetGlobalColor(ShaderIDs.Color, m_VolumeComponent.color.value);
+                    CoreUtils.SetKeyword(cmd, "_EDGEDETECION", true);
+                    
+                    Blitter.BlitCameraTexture(cmd, cameraDepthTexture, data.edgeDetectionTexture, finalLoadAction, RenderBufferStoreAction.Store, m_Material, 0);
+                    
+                    rgContext.cmd.SetGlobalTexture("_EdgeDetectionTexture", data.edgeDetectionTexture);
+                });
+
+            }
+        }
+
+        private void CreateRenderTextureHandles(RenderGraph renderGraph, UniversalResourceData resourceData,
+            UniversalCameraData cameraData, out TextureHandle edgeDetectionTexture)
+        {
+            var descriptor = cameraData.cameraTargetDescriptor;
+            descriptor.msaaSamples = 1;
+            descriptor.useMipMap = false;
+            descriptor.autoGenerateMips = false;
+            descriptor.depthBufferBits = 0;
+            descriptor.colorFormat = m_SupportsR8RenderTextureFormat ? RenderTextureFormat.R8 : descriptor.colorFormat;
+            
+            // Handles
+            edgeDetectionTexture = UniversalRenderer.CreateRenderGraphTexture(renderGraph, descriptor, "_EdgeDetectionTexture", false, FilterMode.Bilinear);
+        }
+
 
         public override void Render(CommandBuffer cmd, ScriptableRenderContext context, FernCoreFeatureRenderPass.PostProcessRTHandles rtHandles, ref RenderingData renderingData, FernPostProcessInjectionPoint injectionPoint)
         {

@@ -16,10 +16,10 @@ namespace UnityEditor.Rendering.FernRenderPipeline
             {
                 var fernRenderGameObject = new GameObject();
                 fernRenderGameObject.name = "FernRP";
-                var renderPipelineAsset = GraphicsSettings.renderPipelineAsset;
+                var renderPipelineAsset = GraphicsSettings.defaultRenderPipeline;
                 fernRP = fernRenderGameObject.AddComponent<FernRP>();
                 fernRP.renderPipelineAsset = renderPipelineAsset;
-                GraphicsSettings.renderPipelineAsset = renderPipelineAsset;
+                GraphicsSettings.defaultRenderPipeline = renderPipelineAsset;
             }
             
             Selection.activeObject = fernRP.gameObject;

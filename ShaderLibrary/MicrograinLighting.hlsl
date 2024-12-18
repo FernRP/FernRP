@@ -610,12 +610,12 @@ half3 FernMainLightDirectLighting(BRDFData brdfData, BRDFData brdfDataClearCoat,
     // base brdf
     half oneMinusReflectivity = OneMinusReflectivityMetallic(surfData.metallic);
     half3 brdfDiffuse_base = surfData.albedo * oneMinusReflectivity;
-    half3 brdfSpecular_base = lerp(kDieletricSpec.rgb, surfData.albedo, surfData.metallic);
+    half3 brdfSpecular_base = lerp(kDielectricSpec.rgb, surfData.albedo, surfData.metallic);
 
     // porous brdf
     half oneMinusReflectivity_s = OneMinusReflectivityMetallic(surfData.porousMetallic);
     half3 brdfDiffuse_porous = surfData.porousColor * oneMinusReflectivity_s;
-    half3 brdfSpecular_porous = lerp(kDieletricSpec.rgb, surfData.porousColor, surfData.porousMetallic);
+    half3 brdfSpecular_porous = lerp(kDielectricSpec.rgb, surfData.porousColor, surfData.porousMetallic);
 
     half3 brdf = MicrograinBSDF_Eval(inputData.normalWS, inputData.viewDirectionWS, lightData.lightDir,
         surfData.porousDensity, roughness_porous2, roughness_base2,

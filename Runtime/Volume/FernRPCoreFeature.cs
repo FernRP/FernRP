@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
 
 namespace UnityEngine.Rendering.FernRenderPipeline
@@ -73,7 +74,8 @@ namespace UnityEngine.Rendering.FernRenderPipeline
         private List<FernRPFeatureRenderer> m_PostProcessRenderers;
         private List<int> m_ActivePostProcessRenderers;
         private Material uber_Material;
-        RenderTextureDescriptor m_Descriptor;
+        private RenderTextureDescriptor m_Descriptor;
+        private ProfilingSampler m_ProfilingSampler = new ProfilingSampler("Fern Uber Pass");
 
         public class PostProcessRTHandles
         {
@@ -198,6 +200,54 @@ namespace UnityEngine.Rendering.FernRenderPipeline
             return m_ActivePostProcessRenderers.Count != 0;
         }
 
+        private class FernUberPostPassData
+        {
+            internal TextureHandle destinationTexture;
+            internal Material material;
+            internal UniversalCameraData cameraData;
+        }
+        
+        public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
+        {
+
+            for (int index = 0; index < m_ActivePostProcessRenderers.Count; ++index)
+            {
+                var rendererIndex = m_ActivePostProcessRenderers[index];
+                var fernPostProcessRenderer = m_PostProcessRenderers[rendererIndex];
+                if (!fernPostProcessRenderer.Initialized)
+                    fernPostProcessRenderer.InitializeInternal();
+                fernPostProcessRenderer.RecordRenderGraph(renderGraph, frameData);
+            }
+
+            using (var builder = renderGraph.AddRasterRenderPass<FernUberPostPassData>("Fern Uber Post Processing", out var passData, m_ProfilingSampler))
+            {
+                UniversalResourceData resourceData = frameData.Get<UniversalResourceData>();
+                UniversalCameraData cameraData = frameData.Get<UniversalCameraData>();
+                
+                TextureHandle activeColor = resourceData.activeColorTexture;
+                TextureHandle backbuffer = resourceData.backBufferColor;
+                
+                var destTexture = resourceData.activeColorTexture;
+                
+#if ENABLE_VR && ENABLE_XR_MODULE
+                // TODO
+#endif
+                
+                builder.AllowGlobalStateModification(true);
+                passData.destinationTexture = destTexture;
+                builder.SetRenderAttachment(destTexture, 0, AccessFlags.Write);
+                passData.cameraData = cameraData;
+                passData.material = uber_Material;
+
+                builder.SetRenderFunc(static (FernUberPostPassData data, RasterGraphContext context) =>
+                {
+                    var cmd = context.cmd;
+                    var material = data.material;
+                    ScaleViewportAndBlit(cmd, data.destinationTexture, data.destinationTexture, data.cameraData, material, false);
+                });
+            }
+        }
+
         /// <summary>
         /// Execute the custom post processing renderers
         /// </summary>
@@ -209,7 +259,10 @@ namespace UnityEngine.Rendering.FernRenderPipeline
 
             CommandBuffer cmd = CommandBufferPool.Get(m_PassName);
             
-            PostProcessUtils.SetSourceSize(cmd, cameraData.cameraTargetDescriptor);
+            // Disable obsolete warning for internal usage
+            #pragma warning disable CS0618
+            PostProcessUtils.SetSourceSize(cmd, cameraData.renderer.cameraColorTargetHandle);
+            #pragma warning restore CS0618
             
             for (int index = 0; index < m_ActivePostProcessRenderers.Count; ++index)
             {
@@ -238,11 +291,6 @@ namespace UnityEngine.Rendering.FernRenderPipeline
 
         void Render(CommandBuffer cmd, ScriptableRenderContext context, FernRPFeatureRenderer fernPostRenderer, ref RenderingData renderingData)
         {
-            ref CameraData cameraData = ref renderingData.cameraData;
-            bool useTemporalAA = cameraData.IsTemporalAAEnabled();
-            if (cameraData.antialiasing == AntialiasingMode.TemporalAntiAliasing && !useTemporalAA)
-                TemporalAA.ValidateAndWarn(ref cameraData);
-
             fernPostRenderer.Render(cmd, context, m_rtHandles, ref renderingData, injectionPoint);
         }
 
@@ -275,6 +323,40 @@ namespace UnityEngine.Rendering.FernRenderPipeline
             desc.height = height;
             desc.graphicsFormat = format;
             return desc;
+        }
+        
+        static private void ScaleViewportAndBlit(RasterCommandBuffer cmd, RTHandle sourceTextureHdl, RTHandle dest, UniversalCameraData cameraData, Material material, bool hasFinalPass)
+        {
+            Vector4 scaleBias = RenderingUtils.GetFinalBlitScaleBias(sourceTextureHdl, dest, cameraData);
+            RenderTargetIdentifier cameraTarget = BuiltinRenderTextureType.CameraTarget;
+#if ENABLE_VR && ENABLE_XR_MODULE
+            if (cameraData.xr.enabled)
+                cameraTarget = cameraData.xr.renderTarget;
+#endif
+            if (dest.nameID == cameraTarget || cameraData.targetTexture != null)
+            {
+                if (hasFinalPass || !cameraData.resolveFinalTarget)
+                {
+                    // Intermediate target can be scaled with render scale.
+                    // camera.pixelRect is the viewport of the final target in pixels.
+                    // Calculate scaled viewport for the intermediate target,
+                    // for example when inside a camera stack (non-final pass).
+                    var camViewportNormalized = cameraData.camera.rect;
+                    var targetWidth = cameraData.cameraTargetDescriptor.width;
+                    var targetHeight = cameraData.cameraTargetDescriptor.height;
+                    var scaledTargetViewportInPixels = new Rect(
+                        camViewportNormalized.x * targetWidth,
+                        camViewportNormalized.y * targetHeight,
+                        camViewportNormalized.width * targetWidth,
+                        camViewportNormalized.height * targetHeight);
+                    cmd.SetViewport(scaledTargetViewportInPixels);
+                }
+                else
+                    cmd.SetViewport(cameraData.pixelRect);
+            }
+
+
+            Blitter.BlitTexture(cmd, sourceTextureHdl, scaleBias, material, 0);
         }
     }
 }

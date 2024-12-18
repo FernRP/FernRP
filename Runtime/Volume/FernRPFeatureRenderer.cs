@@ -2,6 +2,7 @@
 using UnityEngine.Rendering.FernRenderPipeline;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
 
 namespace UnityEngine.Rendering.FernRenderPipeline
@@ -80,6 +81,8 @@ namespace UnityEngine.Rendering.FernRenderPipeline
         /// <param name="injectionPoint">The injection point from which the renderer is being called</param>
         public abstract void Render(CommandBuffer cmd, ScriptableRenderContext context, FernCoreFeatureRenderPass.PostProcessRTHandles rtHandles, ref RenderingData renderingData, FernPostProcessInjectionPoint injectionPoint);
 
+        public abstract void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData);
+        
         /// <summary>
         /// Dispose function, called when the renderer is disposed.
         /// </summary>

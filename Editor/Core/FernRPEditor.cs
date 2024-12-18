@@ -36,7 +36,7 @@ namespace UnityEditor.Rendering.FernRenderPipeline
                 GUILayout.BeginHorizontal();
                 EditorGUILayout.PropertyField(renderPipelineAsset);
 
-                if (GraphicsSettings.renderPipelineAsset != script.renderPipelineAsset)
+                if (GraphicsSettings.defaultRenderPipeline != script.renderPipelineAsset)
                 {
                     if (GUILayout.Button("Apply", GUILayout.MaxWidth(70f)))
                     {

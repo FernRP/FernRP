@@ -6,7 +6,6 @@
     #include "Packages/com.unity.render-pipelines.core/Runtime/Utilities/Blit.hlsl"
 
     float4 _SourceSize;
-    float4 _BlitTexture_TexelSize;
     float4 _Edge_Threshold;
     float3 _Edge_Color;
 
