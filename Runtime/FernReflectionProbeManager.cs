@@ -53,7 +53,28 @@ namespace UnityEngine.Rendering.FernRenderPipeline
                 }
             }
         }
-       
+
+        public unsafe void UpdateRenderGraphGpuData(CommandBuffer cmd, ref UniversalRenderingData renderingData)
+        {
+            var probes = renderingData.cullResults.visibleReflectionProbes;
+            var probeCount = math.min(probes.Length, UniversalRenderPipeline.maxVisibleReflectionProbes);
+
+            cmd.SetGlobalTexture(ShaderProperties.AmbientSkyCube, blackCubemapRT);
+
+            for (var probeIndex = 0; probeIndex < probeCount; probeIndex++)
+            {
+                var reflectionProbe = probes[probeIndex].reflectionProbe;
+                var fernProbe = reflectionProbe.GetAdditionalReflectionProbe();
+                if (fernProbe.realtimeAmbient)
+                {
+                    reflectionProbe.mode = ReflectionProbeMode.Realtime;
+                    reflectionProbe.refreshMode = ReflectionProbeRefreshMode.ViaScripting;
+                    reflectionProbe.RenderProbe();
+                    cmd.SetGlobalTexture(ShaderProperties.AmbientSkyCube, reflectionProbe.texture?reflectionProbe.texture:blackCubemapRT);
+                }
+            }
+        }
+
         public void Dispose()
         {
             

@@ -18,6 +18,8 @@ namespace UnityEngine.Rendering.FernRenderPipeline
         static readonly int s_FogParameters = Shader.PropertyToID("_FogParameters");
         private static readonly int AmbientSkyCube = Shader.PropertyToID("_AmbientSkyCube");
 
+        private ProfilingSampler m_ProfilingSampler = new ProfilingSampler("Ambient Update");
+
         private AmbientProbeUpdateVolume m_VolumeComponent;
 
         public Cubemap skyCubemap;
@@ -118,10 +120,44 @@ namespace UnityEngine.Rendering.FernRenderPipeline
                 cmd.RequestAsyncReadback(ambientProbeResult, OnComputeAmbientProbeDone);
             }
         }
+        
+        
+        private class AmbientUpdatePassData
+        {
+        }
 
         public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
         {
+            // TODO: Should use computePass
+            using (IUnsafeRenderGraphBuilder builder =
+                   renderGraph.AddUnsafePass<AmbientUpdatePassData>("Ambient Probe Update", out var passData, m_ProfilingSampler))
+            {
+                // Shader keyword changes are considered as global state modifications
+                builder.AllowGlobalStateModification(true);
+                builder.AllowPassCulling(false);
+
+                UniversalRenderingData renderingData = frameData.Get<UniversalRenderingData>();
+                
+                builder.SetRenderFunc((AmbientUpdatePassData data, UnsafeGraphContext rgContext) =>
+                {
+                    CommandBuffer cmd = CommandBufferHelpers.GetNativeCommandBuffer(rgContext.cmd);
+                    m_FernReflectionProbeManager.UpdateRenderGraphGpuData(cmd, ref renderingData);
             
+                    cmd.SetComputeBufferParam(computeAmbientProbeCS, computeAmbientProbeKernel, s_AmbientProbeOutputBufferParam, ambientProbeResult);
+                    cmd.SetComputeBufferParam(computeAmbientProbeCS, computeAmbientProbeKernel, s_ScratchBufferParam, scratchBuffer);
+                    cmd.SetComputeTextureParam(computeAmbientProbeCS, computeAmbientProbeKernel, s_AmbientProbeInputCubemap, skyCubemap);
+                    if (diffuseAmbientProbeBuffer != null)
+                        cmd.SetComputeBufferParam(computeAmbientProbeCS, computeAmbientProbeKernel, s_DiffuseAmbientProbeOutputBufferParam, diffuseAmbientProbeBuffer);
+            
+                    Hammersley.BindConstants(cmd, computeAmbientProbeCS);
+            
+                    cmd.DispatchCompute(computeAmbientProbeCS, computeAmbientProbeKernel, 1, 1, 1);
+                    if (ambientProbeResult != null)
+                    {
+                        cmd.RequestAsyncReadback(ambientProbeResult, OnComputeAmbientProbeDone);
+                    }
+                });
+            }
         }
     }
 }

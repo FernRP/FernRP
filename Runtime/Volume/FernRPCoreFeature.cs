@@ -200,53 +200,7 @@ namespace UnityEngine.Rendering.FernRenderPipeline
             return m_ActivePostProcessRenderers.Count != 0;
         }
 
-        private class FernUberPostPassData
-        {
-            internal TextureHandle destinationTexture;
-            internal Material material;
-            internal UniversalCameraData cameraData;
-        }
         
-        public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
-        {
-
-            for (int index = 0; index < m_ActivePostProcessRenderers.Count; ++index)
-            {
-                var rendererIndex = m_ActivePostProcessRenderers[index];
-                var fernPostProcessRenderer = m_PostProcessRenderers[rendererIndex];
-                if (!fernPostProcessRenderer.Initialized)
-                    fernPostProcessRenderer.InitializeInternal();
-                fernPostProcessRenderer.RecordRenderGraph(renderGraph, frameData);
-            }
-
-            using (var builder = renderGraph.AddRasterRenderPass<FernUberPostPassData>("Fern Uber Post Processing", out var passData, m_ProfilingSampler))
-            {
-                UniversalResourceData resourceData = frameData.Get<UniversalResourceData>();
-                UniversalCameraData cameraData = frameData.Get<UniversalCameraData>();
-                
-                TextureHandle activeColor = resourceData.activeColorTexture;
-                TextureHandle backbuffer = resourceData.backBufferColor;
-                
-                var destTexture = resourceData.activeColorTexture;
-                
-#if ENABLE_VR && ENABLE_XR_MODULE
-                // TODO
-#endif
-                
-                builder.AllowGlobalStateModification(true);
-                passData.destinationTexture = destTexture;
-                builder.SetRenderAttachment(destTexture, 0, AccessFlags.Write);
-                passData.cameraData = cameraData;
-                passData.material = uber_Material;
-
-                builder.SetRenderFunc(static (FernUberPostPassData data, RasterGraphContext context) =>
-                {
-                    var cmd = context.cmd;
-                    var material = data.material;
-                    ScaleViewportAndBlit(cmd, data.destinationTexture, data.destinationTexture, data.cameraData, material, false);
-                });
-            }
-        }
 
         /// <summary>
         /// Execute the custom post processing renderers
@@ -292,6 +246,65 @@ namespace UnityEngine.Rendering.FernRenderPipeline
         void Render(CommandBuffer cmd, ScriptableRenderContext context, FernRPFeatureRenderer fernPostRenderer, ref RenderingData renderingData)
         {
             fernPostRenderer.Render(cmd, context, m_rtHandles, ref renderingData, injectionPoint);
+        }
+        
+        private class FernUberPostPassData
+        {
+            internal TextureHandle destinationTexture;
+            internal TextureHandle source;
+            internal Material material;
+            internal UniversalCameraData cameraData;
+        }
+
+        public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
+        {
+            for (int index = 0; index < m_ActivePostProcessRenderers.Count; ++index)
+            {
+                var rendererIndex = m_ActivePostProcessRenderers[index];
+                var fernPostProcessRenderer = m_PostProcessRenderers[rendererIndex];
+                if (!fernPostProcessRenderer.Initialized)
+                    fernPostProcessRenderer.InitializeInternal();
+                fernPostProcessRenderer.RecordRenderGraph(renderGraph, frameData);
+            }
+
+            if (injectionPoint == FernPostProcessInjectionPoint.BeforePostProcess)
+            {
+                using (var builder = renderGraph.AddRasterRenderPass<FernUberPostPassData>("Fern Uber Post Processing", out var passData, m_ProfilingSampler))
+                {
+                    UniversalResourceData resourceData = frameData.Get<UniversalResourceData>();
+                    UniversalCameraData cameraData = frameData.Get<UniversalCameraData>();
+
+                
+                    TextureHandle activeColor = resourceData.activeColorTexture;
+                    TextureHandle backbuffer = resourceData.backBufferColor;
+                    
+                    TextureHandle target = backbuffer;
+
+                    var source = activeColor;
+                    var destTexture = target;
+                
+#if ENABLE_VR && ENABLE_XR_MODULE
+                    // TODO
+#endif
+                
+                    builder.AllowGlobalStateModification(true);
+                    passData.source = source;
+                    passData.destinationTexture = destTexture;
+                    builder.SetRenderAttachment(destTexture, 0, AccessFlags.Write);
+                    passData.cameraData = cameraData;
+                    passData.material = uber_Material;
+
+                    builder.SetRenderFunc(static (FernUberPostPassData data, RasterGraphContext context) =>
+                    {
+                        var cmd = context.cmd;
+                        var material = data.material;
+                        ScaleViewportAndBlit(cmd, data.source, data.destinationTexture, data.cameraData, material, true);
+                    });
+                    
+                    //resourceData.activeColorID = UniversalResourceData.ActiveID.BackBuffer;
+                    //resourceData.activeDepthID = UniversalResourceData.ActiveID.BackBuffer;
+                }
+            }
         }
 
         public void Dispose()
@@ -354,8 +367,7 @@ namespace UnityEngine.Rendering.FernRenderPipeline
                 else
                     cmd.SetViewport(cameraData.pixelRect);
             }
-
-
+            
             Blitter.BlitTexture(cmd, sourceTextureHdl, scaleBias, material, 0);
         }
     }
