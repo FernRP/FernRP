@@ -58,7 +58,7 @@ namespace UnityEngine.Rendering.FernRenderPipeline
         {
             var probes = renderingData.cullResults.visibleReflectionProbes;
             var probeCount = math.min(probes.Length, UniversalRenderPipeline.maxVisibleReflectionProbes);
-
+            
             cmd.SetGlobalTexture(ShaderProperties.AmbientSkyCube, blackCubemapRT);
 
             for (var probeIndex = 0; probeIndex < probeCount; probeIndex++)

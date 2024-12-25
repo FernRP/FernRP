@@ -84,7 +84,6 @@ namespace UnityEngine.Rendering.FernRenderPipeline
             internal TextureHandle cameraColor;
             internal RTHandle destination;
             internal TextureHandle cameraNormalsTexture;
-
         }
         
         private void InitEdgeDetectionOutlinePassData(ref EdgeDetectionOutlinePassData data)
