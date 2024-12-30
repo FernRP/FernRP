@@ -476,6 +476,40 @@ Shader "FernRender/URP/FERNNPRHair"
             #include "NPRDepthNormalsPass.hlsl"
             ENDHLSL
         }
+
+        Pass
+        {
+            Name "DepthShadowOnly"
+            Tags{"LightMode" = "DepthShadowOnly"}
+
+            ZWrite On
+            ColorMask 0
+            Cull[_Cull]
+
+            HLSLPROGRAM
+            #pragma target 3.0
+
+            //--------------------------------------
+            // GPU Instancing
+            #pragma multi_compile_instancing
+
+            // -------------------------------------
+            // Fern Keywords
+            #pragma shader_feature_local_vertex _PERSPECTIVEREMOVE
+
+            #pragma vertex DepthOnlyVertex
+            #pragma fragment DepthOnlyFragment
+
+            // -------------------------------------
+            // Material Keywords
+            #pragma shader_feature_local_fragment _ALPHATEST_ON
+            #pragma shader_feature_local_fragment _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+
+            #include "NPRStandardInput.hlsl"
+            #include "Packages/com.fern.renderpipeline/ShaderLibrary/DepthOnlyPass.hlsl"
+            #include "Packages/com.fern.renderpipeline/ShaderLibrary/DepthOnlyPass.hlsl"
+            ENDHLSL
+        }
         
         // This pass it not used during regular rendering, only for lightmap baking.
         Pass

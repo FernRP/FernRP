@@ -44,7 +44,7 @@ namespace UnityEngine.Rendering.FernRenderPipeline
             List<FernRPFeatureRenderer> afterPostProcessRenderers = new List<FernRPFeatureRenderer>();
 
             beforeOpaqueRenderers.Add(new AmbientProbeUpdatePass(m_FernRPData));
-            //beforeOpaqueRenderers.Add(new DepthOffsetRender());
+            beforeOpaqueRenderers.Add(new DepthOffsetRender());
             beforePostProcessRenderers.Add(new EdgeDetectionEffectRenderer());
             
             m_BeforeOpaquePass = new FernCoreFeatureRenderPass(FernPostProcessInjectionPoint.BeforeOpaque, beforeOpaqueRenderers);

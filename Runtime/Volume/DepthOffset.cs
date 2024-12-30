@@ -21,7 +21,7 @@ namespace UnityEngine.Rendering.FernRenderPipeline
     [FernRender("Depth Offset", FernPostProcessInjectionPoint.BeforeOpaque)]
     public class DepthOffsetRender : FernRPFeatureRenderer
     {
-        private ProfilingSampler m_ProfilingSampler = new ProfilingSampler("DepthShadowPrepass");
+        private ProfilingSampler m_ProfilingSampler = new ProfilingSampler("DepthShadowPrePass");
 
         private static readonly ShaderTagId k_ShaderTagId = new ShaderTagId("DepthShadowOnly");
         private ShaderTagId shaderTagId { get; set; } = k_ShaderTagId;
@@ -38,7 +38,11 @@ namespace UnityEngine.Rendering.FernRenderPipeline
         RTHandle depthShadowRTHandle;
         
         static readonly int s_DrawDepthOffsetPassDataPropID = Shader.PropertyToID("_DrawDepthOffsetPassData");
-        
+
+        public override void Initialize()
+        {
+            m_FilteringSettings = new FilteringSettings(RenderQueueRange.opaque);
+        }
 
         public override bool Setup(ref RenderingData renderingData, FernPostProcessInjectionPoint injectionPoint, Material uberMaterial = null)
         {
@@ -48,8 +52,6 @@ namespace UnityEngine.Rendering.FernRenderPipeline
             {
                 return false;
             }            
-            
-            m_FilteringSettings = new FilteringSettings(RenderQueueRange.opaque);
 
             var descriptor = renderingData.cameraData.cameraTargetDescriptor;
             descriptor.graphicsFormat = GraphicsFormat.None;
@@ -85,83 +87,24 @@ namespace UnityEngine.Rendering.FernRenderPipeline
         
         internal class DepthOffsetData
         {
-            internal TextureHandle albedoHdl;
-            internal TextureHandle depthHdl;
-            
-            internal UniversalCameraData cameraData;
-            internal DebugRendererLists debugRendererLists;
-            internal RendererListHandle rendererListHdl;
-            internal RendererListHandle objectsWithErrorRendererListHdl;
-            
-            // Required for code sharing purpose between RG and non-RG.
-            internal RendererList rendererList;
-            internal RendererList objectsWithErrorRendererList;
-        }
-
-        internal void InitRendererLists(UniversalRenderingData renderingData, UniversalCameraData cameraData, UniversalLightData lightData, ref DepthOffsetData passData, ScriptableRenderContext context, RenderGraph renderGraph, bool useRenderGraph)
-        {
-            ref Camera camera = ref cameraData.camera;
-            var sortFlags = cameraData.defaultOpaqueSortFlags;
-            if (cameraData.renderer.useDepthPriming && (cameraData.renderType == CameraRenderType.Base || cameraData.clearDepth))
-                sortFlags = SortingCriteria.SortingLayer | SortingCriteria.RenderQueue | SortingCriteria.OptimizeStateChanges | SortingCriteria.CanvasOrder;
-
-            var filterSettings = m_FilteringSettings;
-            filterSettings.batchLayerMask = uint.MaxValue;
-#if UNITY_EDITOR
-                // When rendering the preview camera, we want the layer mask to be forced to Everything
-                if (cameraData.isPreviewCamera)
-                {
-                    filterSettings.layerMask = -1;
-                }
-#endif
-            DrawingSettings drawSettings = RenderingUtils.CreateDrawingSettings(shaderTagId, renderingData, cameraData, lightData, sortFlags);
-            if (cameraData.renderer.useDepthPriming && (cameraData.renderType == CameraRenderType.Base || cameraData.clearDepth))
-            {
-                m_RenderStateBlock.depthState = new DepthState(false, CompareFunction.Equal);
-                m_RenderStateBlock.mask |= RenderStateMask.Depth;
-            }
-            else if (m_RenderStateBlock.depthState.compareFunction == CompareFunction.Equal)
-            {
-                m_RenderStateBlock.depthState = new DepthState(true, CompareFunction.LessEqual);
-                m_RenderStateBlock.mask |= RenderStateMask.Depth;
-            }
-
-            var activeDebugHandler = ScriptableRenderPass.GetActiveDebugHandler(cameraData);
-            if (useRenderGraph)
-            {
-                if (activeDebugHandler != null)
-                {
-                    passData.debugRendererLists = activeDebugHandler.CreateRendererListsWithDebugRenderState(renderGraph, ref renderingData.cullResults, ref drawSettings, ref filterSettings, ref m_RenderStateBlock);
-                }
-                else
-                {
-                    RenderingUtils.CreateRendererListWithRenderStateBlock(renderGraph, ref renderingData.cullResults, drawSettings, filterSettings, m_RenderStateBlock, ref passData.rendererListHdl);
-                    RenderingUtils.CreateRendererListObjectsWithError(renderGraph, ref renderingData.cullResults, camera, filterSettings, sortFlags, ref passData.objectsWithErrorRendererListHdl);
-                }
-            }
-            else
-            {
-                if (activeDebugHandler != null)
-                {
-                    passData.debugRendererLists = activeDebugHandler.CreateRendererListsWithDebugRenderState(context, ref renderingData.cullResults, ref drawSettings, ref filterSettings, ref m_RenderStateBlock);
-                }
-                else
-                {
-                    RenderingUtils.CreateRendererListWithRenderStateBlock(context, ref renderingData.cullResults, drawSettings, filterSettings, m_RenderStateBlock, ref passData.rendererList);
-                    RenderingUtils.CreateRendererListObjectsWithError(context, ref renderingData.cullResults, camera, filterSettings, sortFlags, ref passData.objectsWithErrorRendererList);
-                }
-            }
+            internal RendererListHandle rendererList;
         }
         
-        /// <summary>
-        /// Initialize the shared pass data.
-        /// </summary>
-        /// <param name="passData"></param>
-        internal void InitPassData(UniversalCameraData cameraData, ref DepthOffsetData passData, bool isActiveTargetBackBuffer = false)
+        private RendererListParams InitRendererListParams(UniversalRenderingData renderingData, UniversalCameraData cameraData, UniversalLightData lightData)
         {
-            passData.cameraData = cameraData;
+            var sortFlags = cameraData.defaultOpaqueSortFlags;
+            var drawSettings = RenderingUtils.CreateDrawingSettings(this.shaderTagId, renderingData, cameraData, lightData, sortFlags);
+            drawSettings.perObjectData = PerObjectData.None;
+            return new RendererListParams(renderingData.cullResults, drawSettings, m_FilteringSettings);
         }
-
+        
+        private static void ExecutePass(RasterCommandBuffer cmd, RendererList rendererList)
+        {
+            using (new ProfilingScope(cmd, ProfilingSampler.Get(URPProfileId.DepthPrepass)))
+            {
+                cmd.DrawRendererList(rendererList);
+            }
+        }
         
         public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
         {
@@ -170,92 +113,45 @@ namespace UnityEngine.Rendering.FernRenderPipeline
             UniversalRenderingData renderingData = frameData.Get<UniversalRenderingData>();
             UniversalLightData lightData = frameData.Get<UniversalLightData>();
 
-            var colorTarget = TextureHandle.nullHandle;
+          
+            
+            RenderTextureDescriptor descriptor = cameraData.cameraTargetDescriptor;
+            descriptor.msaaSamples = 1;
+            descriptor.width >>= m_Component.downSample.value;
+            descriptor.height >>= m_Component.downSample.value;
+            descriptor.graphicsFormat = GraphicsFormat.None;
+            descriptor.depthStencilFormat = GraphicsFormat.D32_SFloat_S8_UInt;
+          
+            var depthShadowTexture = UniversalRenderer.CreateRenderGraphTexture(renderGraph, descriptor, "_CameraDepthShadowTexture", true);
+            
+            var colorTarget = depthShadowTexture;
             var depthTarget = resourceData.backBufferDepth;
             
             using (var builder = 
-                   renderGraph.AddRasterRenderPass<DepthOffsetData>("Depth Offset", out var passData, m_ProfilingSampler))
+                   renderGraph.AddRasterRenderPass<DepthOffsetData>("Depth Offset Pass", out var passData, m_ProfilingSampler))
             {
-                builder.UseAllGlobalTextures(true);
 
-                InitPassData(cameraData, ref passData, resourceData.isActiveTargetBackBuffer);
+                var param = InitRendererListParams(renderingData, cameraData, lightData);
+                param.filteringSettings.batchLayerMask = uint.MaxValue;
+                passData.rendererList = renderGraph.CreateRendererList(param);
+                builder.UseRendererList(passData.rendererList);
                 
-                if (colorTarget.IsValid())
-                {
-                    passData.albedoHdl = colorTarget;
-                    builder.SetRenderAttachment(colorTarget, 0, AccessFlags.Write);
-                }
+                builder.SetRenderAttachmentDepth(colorTarget, AccessFlags.Write);
                 
-                if (depthTarget.IsValid())
-                {
-                    passData.depthHdl = depthTarget;
-                    builder.SetRenderAttachmentDepth(depthTarget, AccessFlags.Write);
-                }
+                builder.SetGlobalTextureAfterPass(depthShadowTexture, Shader.PropertyToID("_CameraDepthShadowTexture"));
                 
-                InitRendererLists(renderingData, cameraData, lightData, ref passData, default(ScriptableRenderContext), renderGraph, true);
-                var activeDebugHandler = ScriptableRenderPass.GetActiveDebugHandler(cameraData);
-                if (activeDebugHandler != null)
-                {
-                    passData.debugRendererLists.PrepareRendererListForRasterPass(builder);
-                }
-                else
-                {
-                    builder.UseRendererList(passData.rendererListHdl);
-                    builder.UseRendererList(passData.objectsWithErrorRendererListHdl);
-                }
-                
+                //  TODO RENDERGRAPH: culling? force culling off for testing
                 builder.AllowPassCulling(false);
                 builder.AllowGlobalStateModification(true);
                 
                 if (cameraData.xr.enabled)
-                {
-                    bool passSupportsFoveation = cameraData.xrUniversal.canFoveateIntermediatePasses || resourceData.isActiveTargetBackBuffer;
-                    builder.EnableFoveatedRasterization(cameraData.xr.supportsFoveatedRendering && passSupportsFoveation);
-                }
-                
+                    builder.EnableFoveatedRasterization(cameraData.xr.supportsFoveatedRendering && cameraData.xrUniversal.canFoveateIntermediatePasses);
+
                 builder.SetRenderFunc((DepthOffsetData data, RasterGraphContext context) =>
                 {
-                    bool yFlip = data.cameraData.IsRenderTargetProjectionMatrixFlipped(data.albedoHdl, data.depthHdl);
-                    
-                    ExecutePass(context.cmd, data, data.rendererListHdl, data.objectsWithErrorRendererListHdl, yFlip);
+                    ExecutePass(context.cmd, data.rendererList);
                 });
                 
-            }
-        }
-        
-        internal static void ExecutePass(RasterCommandBuffer cmd, DepthOffsetData data, RendererList rendererList, RendererList objectsWithErrorRendererList, bool yFlip)
-        {
-            // Global render pass data containing various settings.
-            // x,y,z are currently unused
-            // w is used for knowing whether the object is opaque(1) or alpha blended(0)
-            Vector4 drawObjectPassData = new Vector4(0.0f, 0.0f, 0.0f, 1);
-            cmd.SetGlobalVector(s_DrawDepthOffsetPassDataPropID, drawObjectPassData);
-
-            // scaleBias.x = flipSign
-            // scaleBias.y = scale
-            // scaleBias.z = bias
-            // scaleBias.w = unused
-            float flipSign = yFlip ? -1.0f : 1.0f;
-            Vector4 scaleBias = (flipSign < 0.0f)
-                ? new Vector4(flipSign, 1.0f, -1.0f, 1.0f)
-                : new Vector4(flipSign, 0.0f, 1.0f, 1.0f);
-            cmd.SetGlobalVector(ShaderPropertyId.scaleBiasRt, scaleBias);
-
-            // Set a value that can be used by shaders to identify when AlphaToMask functionality may be active
-            // The material shader alpha clipping logic requires this value in order to function correctly in all cases.
-            float alphaToMaskAvailable = 1.0f;
-            cmd.SetGlobalFloat(ShaderPropertyId.alphaToMaskAvailable, alphaToMaskAvailable);
-
-            var activeDebugHandler = ScriptableRenderPass.GetActiveDebugHandler(data.cameraData);
-            if (activeDebugHandler != null)
-            {
-                data.debugRendererLists.DrawWithRendererList(cmd);
-            }
-            else
-            {
-                cmd.DrawRendererList(rendererList);
-                // Render objects that did not match any shader pass with error shader
-                RenderingUtils.DrawRendererListObjectsWithError(cmd, ref objectsWithErrorRendererList);
             }
         }
 
