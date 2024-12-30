@@ -75,7 +75,9 @@ namespace UnityEngine.Rendering.FernRenderPipeline
         private List<int> m_ActivePostProcessRenderers;
         private Material uber_Material;
         private RenderTextureDescriptor m_Descriptor;
-        private ProfilingSampler m_ProfilingSampler = new ProfilingSampler("Fern Uber Pass");
+        private ProfilingSampler m_UberProfilingSampler = new ProfilingSampler("Fern Uber Pass");
+        private ProfilingSampler m_CopyProfilingSampler = new ProfilingSampler("Fern Full Screen Copy Pass");
+        private static MaterialPropertyBlock s_SharedPropertyBlock = new MaterialPropertyBlock();
 
         public class PostProcessRTHandles
         {
@@ -200,53 +202,7 @@ namespace UnityEngine.Rendering.FernRenderPipeline
             return m_ActivePostProcessRenderers.Count != 0;
         }
 
-        private class FernUberPostPassData
-        {
-            internal TextureHandle destinationTexture;
-            internal Material material;
-            internal UniversalCameraData cameraData;
-        }
         
-        public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
-        {
-
-            for (int index = 0; index < m_ActivePostProcessRenderers.Count; ++index)
-            {
-                var rendererIndex = m_ActivePostProcessRenderers[index];
-                var fernPostProcessRenderer = m_PostProcessRenderers[rendererIndex];
-                if (!fernPostProcessRenderer.Initialized)
-                    fernPostProcessRenderer.InitializeInternal();
-                fernPostProcessRenderer.RecordRenderGraph(renderGraph, frameData);
-            }
-
-            using (var builder = renderGraph.AddRasterRenderPass<FernUberPostPassData>("Fern Uber Post Processing", out var passData, m_ProfilingSampler))
-            {
-                UniversalResourceData resourceData = frameData.Get<UniversalResourceData>();
-                UniversalCameraData cameraData = frameData.Get<UniversalCameraData>();
-                
-                TextureHandle activeColor = resourceData.activeColorTexture;
-                TextureHandle backbuffer = resourceData.backBufferColor;
-                
-                var destTexture = resourceData.activeColorTexture;
-                
-#if ENABLE_VR && ENABLE_XR_MODULE
-                // TODO
-#endif
-                
-                builder.AllowGlobalStateModification(true);
-                passData.destinationTexture = destTexture;
-                builder.SetRenderAttachment(destTexture, 0, AccessFlags.Write);
-                passData.cameraData = cameraData;
-                passData.material = uber_Material;
-
-                builder.SetRenderFunc(static (FernUberPostPassData data, RasterGraphContext context) =>
-                {
-                    var cmd = context.cmd;
-                    var material = data.material;
-                    ScaleViewportAndBlit(cmd, data.destinationTexture, data.destinationTexture, data.cameraData, material, false);
-                });
-            }
-        }
 
         /// <summary>
         /// Execute the custom post processing renderers
@@ -292,6 +248,100 @@ namespace UnityEngine.Rendering.FernRenderPipeline
         void Render(CommandBuffer cmd, ScriptableRenderContext context, FernRPFeatureRenderer fernPostRenderer, ref RenderingData renderingData)
         {
             fernPostRenderer.Render(cmd, context, m_rtHandles, ref renderingData, injectionPoint);
+        }
+        
+        private class FernUberPostPassData
+        {
+            internal TextureHandle destinationTexture;
+            internal TextureHandle source;
+            internal Material material;
+            internal UniversalCameraData cameraData;
+        }
+        
+        private class CopyPassData
+        {
+            internal TextureHandle inputTexture;
+        }
+
+        public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
+        {
+            for (int index = 0; index < m_ActivePostProcessRenderers.Count; ++index)
+            {
+                var rendererIndex = m_ActivePostProcessRenderers[index];
+                var fernPostProcessRenderer = m_PostProcessRenderers[rendererIndex];
+                if (!fernPostProcessRenderer.Initialized)
+                    fernPostProcessRenderer.InitializeInternal();
+                fernPostProcessRenderer.RecordRenderGraph(renderGraph, frameData);
+            }
+
+            if (injectionPoint == FernPostProcessInjectionPoint.BeforePostProcess)
+            {
+                UniversalResourceData resourcesData = frameData.Get<UniversalResourceData>();
+                UniversalCameraData cameraData = frameData.Get<UniversalCameraData>();
+                   
+                var targetDesc = renderGraph.GetTextureDesc(resourcesData.cameraColor);
+                targetDesc.name = "_CameraColorFullScreenPass";
+                targetDesc.clearBuffer = false;
+
+                var source = resourcesData.activeColorTexture;
+                var destination = renderGraph.CreateTexture(targetDesc);
+                
+                using (var builder = renderGraph.AddRasterRenderPass<CopyPassData>("Copy Color Full Screen", out var passData, m_CopyProfilingSampler))
+                {
+#if ENABLE_VR && ENABLE_XR_MODULE
+                    // TODO
+#endif
+                     passData.inputTexture = source;
+                    builder.UseTexture(passData.inputTexture, AccessFlags.Read);
+                    
+                    builder.SetRenderAttachment(destination, 0, AccessFlags.Write);
+                    
+                    builder.SetRenderFunc(static (CopyPassData data, RasterGraphContext rgContext) =>
+                    {
+                        ExecuteCopyColorPass(rgContext.cmd, data.inputTexture);
+                    });
+                    //Swap for next pass;
+                    source = destination;       
+                }
+                
+                destination = resourcesData.activeColorTexture;
+                
+                using (var builder =
+                       renderGraph.AddRasterRenderPass<FernUberPostPassData>("Fern Uber Post Processing", out var passData, m_UberProfilingSampler))
+                {
+                    passData.source = source;
+                    
+                    if(passData.source.IsValid())
+                        builder.UseTexture(passData.source, AccessFlags.Read);
+                    
+                    builder.SetRenderAttachment(destination, 0, AccessFlags.Write);
+                
+                    passData.cameraData = cameraData;
+                    passData.material = uber_Material;
+                
+                    builder.SetRenderFunc((FernUberPostPassData data, RasterGraphContext rgContext) =>
+                    {
+                        ExecuteMainPass(rgContext.cmd, data.source, data.material, 0);
+                    });
+                }
+            }
+        }
+        
+        private static void ExecuteCopyColorPass(RasterCommandBuffer cmd, RTHandle sourceTexture)
+        {
+            Blitter.BlitTexture(cmd, sourceTexture, new Vector4(1, 1, 0, 0), 0.0f, false);
+        }
+        
+        private static void ExecuteMainPass(RasterCommandBuffer cmd, RTHandle sourceTexture, Material material, int passIndex)
+        {
+            s_SharedPropertyBlock.Clear();
+            if (sourceTexture != null)
+                s_SharedPropertyBlock.SetTexture(ShaderPropertyId.blitTexture, sourceTexture);
+
+            // We need to set the "_BlitScaleBias" uniform for user materials with shaders relying on core Blit.hlsl to work
+            s_SharedPropertyBlock.SetVector(ShaderPropertyId.blitScaleBias, new Vector4(1, 1, 0, 0));
+
+            cmd.DrawProcedural(Matrix4x4.identity, material, passIndex, MeshTopology.Triangles, 3, 1, s_SharedPropertyBlock);
         }
 
         public void Dispose()
@@ -354,8 +404,7 @@ namespace UnityEngine.Rendering.FernRenderPipeline
                 else
                     cmd.SetViewport(cameraData.pixelRect);
             }
-
-
+            
             Blitter.BlitTexture(cmd, sourceTextureHdl, scaleBias, material, 0);
         }
     }

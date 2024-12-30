@@ -2,6 +2,7 @@
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
+using UnityEngine.Rendering.RenderGraphModule.Util;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.Serialization;
 
@@ -43,6 +44,7 @@ namespace UnityEngine.Rendering.FernRenderPipeline
             internal readonly static int Threshold = Shader.PropertyToID("_Edge_Threshold");
             internal readonly static int Color = Shader.PropertyToID("_Edge_Color");
             internal readonly static string LowQuality = "_LowQuality";
+            internal static readonly int s_CameraNormalsTextureID = Shader.PropertyToID("_CameraNormalsTexture");
         }
         
         public override bool visibleInSceneView => true;
@@ -79,7 +81,9 @@ namespace UnityEngine.Rendering.FernRenderPipeline
         private class EdgeDetectionOutlinePassData
         {
             internal Material material;
-            internal TextureHandle edgeDetectionTexture;
+            internal TextureHandle cameraColor;
+            internal RTHandle destination;
+            internal TextureHandle cameraNormalsTexture;
         }
         
         private void InitEdgeDetectionOutlinePassData(ref EdgeDetectionOutlinePassData data)
@@ -91,11 +95,14 @@ namespace UnityEngine.Rendering.FernRenderPipeline
         {
             UniversalCameraData cameraData = frameData.Get<UniversalCameraData>();
             UniversalResourceData resourceData = frameData.Get<UniversalResourceData>();
+            
+            if(cameraData.cameraType == CameraType.Reflection) return;
 
-            CreateRenderTextureHandles(renderGraph, resourceData, cameraData, out TextureHandle edgeDetectionRTHandle);
+            CreateRenderTextureHandles(renderGraph, resourceData, cameraData, out TextureHandle destination);
             
             // Get the resources
-            TextureHandle cameraDepthTexture = resourceData.cameraColor;
+            TextureHandle cameraDepthTexture = resourceData.cameraDepthTexture;
+            TextureHandle cameraNormalsTexture = resourceData.cameraNormalsTexture;
             
             CoreUtils.SetKeyword(m_Material, "_EDGEDETECION", true);
             CoreUtils.SetKeyword(m_Material, ShaderIDs.LowQuality, m_VolumeComponent.LowQuality.value);
@@ -107,18 +114,32 @@ namespace UnityEngine.Rendering.FernRenderPipeline
                 builder.AllowGlobalStateModification(true);
                 builder.AllowPassCulling(false);
                 
-                // Fill in the Pass data...
-                InitEdgeDetectionOutlinePassData(ref passData);
-                passData.edgeDetectionTexture = edgeDetectionRTHandle;
+                passData.material = m_Material;
+                passData.destination = edgeDetectionRTHandle;
+                passData.cameraColor = resourceData.cameraColor;
+                builder.UseTexture(destination, AccessFlags.ReadWrite);
                 
-                // Declare input textures
-                builder.UseTexture(passData.edgeDetectionTexture, AccessFlags.ReadWrite);
-
+                if (cameraDepthTexture.IsValid())
+                    builder.UseTexture(cameraDepthTexture, AccessFlags.Read);
+                
+                if (cameraNormalsTexture.IsValid())
+                {
+                    builder.UseTexture(cameraNormalsTexture, AccessFlags.Read);
+                    passData.cameraNormalsTexture = cameraNormalsTexture;
+                }
+                
                 builder.SetRenderFunc((EdgeDetectionOutlinePassData data, UnsafeGraphContext rgContext) =>
                 {
                     CommandBuffer cmd = CommandBufferHelpers.GetNativeCommandBuffer(rgContext.cmd);
-                    RenderBufferLoadAction finalLoadAction = RenderBufferLoadAction.DontCare;
-
+                    RenderBufferLoadAction finalLoadAction = RenderBufferLoadAction.Load;
+                    
+                    // Setup
+                    if (data.cameraColor.IsValid())
+                        PostProcessUtils.SetSourceSize(cmd, data.cameraColor);
+                    
+                    if (data.cameraNormalsTexture.IsValid())
+                        data.material.SetTexture(ShaderIDs.s_CameraNormalsTextureID, data.cameraNormalsTexture);
+                    
                     float angleThreshold = m_VolumeComponent.angleThreshold.value;
                     float depthThreshold = m_VolumeComponent.depthThreshold.value;
                     Vector4 threshold = new Vector4(Mathf.Cos(angleThreshold * Mathf.Deg2Rad), m_VolumeComponent.thickness.value, depthThreshold, m_VolumeComponent.intensity.value);
@@ -126,9 +147,9 @@ namespace UnityEngine.Rendering.FernRenderPipeline
                     cmd.SetGlobalColor(ShaderIDs.Color, m_VolumeComponent.color.value);
                     CoreUtils.SetKeyword(cmd, "_EDGEDETECION", true);
                     
-                    Blitter.BlitCameraTexture(cmd, cameraDepthTexture, data.edgeDetectionTexture, finalLoadAction, RenderBufferStoreAction.Store, m_Material, 0);
+                    Blitter.BlitCameraTexture(cmd, data.destination, data.destination, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store, data.material,  0);
                     
-                    rgContext.cmd.SetGlobalTexture("_EdgeDetectionTexture", data.edgeDetectionTexture);
+                    cmd.SetGlobalTexture("_EdgeDetectionTexture", data.destination);
                 });
 
             }
