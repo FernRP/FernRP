@@ -48,7 +48,7 @@ namespace UnityEngine.Rendering.FernRenderPipeline
         {
             
             [Reload("Shaders/PostProcessing/EdgeDetectionOutline.shader")]
-            public ComputeShader edgeDetectionOutlinePS;
+            public Shader edgeDetectionOutlinePS;
             
             [Reload("Shaders/Ambient/SHConvolution.compute")]
             public ComputeShader shConvolutionCS;

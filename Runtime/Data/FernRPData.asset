@@ -13,4 +13,6 @@ MonoBehaviour:
   m_Name: FernRPData
   m_EditorClassIdentifier: 
   shaders:
+    edgeDetectionOutlinePS: {fileID: 4800000, guid: 709dfbcd3e969d240ad60e537e7a9791,
+      type: 3}
     shConvolutionCS: {fileID: 7200000, guid: 1956e02541d493d469a0eaf3d86cd468, type: 3}
