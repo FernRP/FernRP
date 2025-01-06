@@ -96,8 +96,6 @@ namespace UnityEngine.Rendering.FernRenderPipeline
             UniversalCameraData cameraData = frameData.Get<UniversalCameraData>();
             UniversalResourceData resourceData = frameData.Get<UniversalResourceData>();
             
-            if(cameraData.cameraType == CameraType.Reflection || cameraData.cameraType == CameraType.Preview) return;
-
             CreateRenderTextureHandles(renderGraph, resourceData, cameraData, out TextureHandle destination);
             
             // Get the resources
