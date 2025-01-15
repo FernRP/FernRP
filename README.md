@@ -19,7 +19,7 @@ The [FernRender](https://github.com/FernRender/FernRender) project is the implem
 ![](DocAssets/MaterialBall.jpg)
  
 ## More Examples
-More showcase in [Wiki](https://github.com/DeJhon-Huang/FernNPR/wiki), please visit [More Example](https://github.com/DeJhon-Huang/FernNPR/wiki/More-Example) on the [Wiki](https://github.com/DeJhon-Huang/FernNPR/wiki)
+More showcase in [Wiki](https://github.com/DeJhon-Huang/FernNPR/wiki).
 
 # Related links
 
